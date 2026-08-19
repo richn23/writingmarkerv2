@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/score.py": {
+      "runtime": "@vercel/python@4.3.0",
+      "maxDuration": 300,
+      "memory": 2048,
+      "includeFiles": "api/**"
+    }
+  }
+}

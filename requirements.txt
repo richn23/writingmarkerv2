@@ -1,0 +1,2 @@
+# Intentionally empty. The scoring engine uses only the Python standard library,
+# so there is nothing to install and nothing that can break on a runtime bump.

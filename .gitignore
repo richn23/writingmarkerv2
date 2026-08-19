@@ -1,0 +1,17 @@
+node_modules
+.next
+.vercel
+*.log
+
+# the TypeScript engine was removed — the Python function is the only implementation
+
+.vercel
+.env*
+
+# Python byte-code, generated whenever the handler is run locally. This also
+# covers _to_delete/, which holds nothing but stale .pyc files.
+__pycache__/
+*.pyc
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo

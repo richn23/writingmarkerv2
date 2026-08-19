@@ -1,0 +1,8 @@
+# Every source file in this project is LF on disk. core.autocrlf is true on this
+# machine, which would rewrite them to CRLF on checkout and show the whole tree
+# as modified. Pin LF so the working copy keeps matching what is committed.
+* text=auto eol=lf
+
+# Binary — never touch line endings, never try to diff as text.
+*.docx binary
+*.pyc  binary
