@@ -319,6 +319,17 @@ def _index(raw, items):
 # 4. The fourth reading
 # ---------------------------------------------------------------------------
 
+def _stream_lower(word):
+    """
+    The lookup key for a stream token, normalised exactly as
+    `_engine/views.tokenize` normalises the as-written ones.
+
+    Both readings have to key on the same form or the same word matches in one
+    and not the other.
+    """
+    return word.lower().replace("'", "")
+
+
 def _match_case(written, replacement):
     if written.isupper() and len(written) > 1:
         return replacement.upper()
@@ -384,7 +395,7 @@ def corrected_sample(text, result, decisions):
             cursor = toks[idx + 1]["end"]
             skip = idx + 1
             out.append(one)
-            stream.append({"raw": one, "lower": one.lower(),
+            stream.append({"raw": one, "lower": _stream_lower(one),
                            "confidence": jn["confidence"], "junk": False})
             changes.append({"written": jn["original"], "read_as": one,
                             "confidence": round(jn["confidence"], 3),
@@ -412,7 +423,7 @@ def corrected_sample(text, result, decisions):
 
         out.append(" ".join(parts))
         for p in parts:
-            stream.append({"raw": p, "lower": p.lower(),
+            stream.append({"raw": p, "lower": _stream_lower(p),
                            "confidence": conf,
                            "junk": p.lower() in junk_forms and source is None})
         if source:
@@ -657,6 +668,16 @@ def _coverage(result, decisions):
     unresolved = {d["original"] for d in decisions.values()
                   if d["answer"] in ("unrecoverable",) or
                   (d["answer"] == "replacement" and not d["accepted"])}
+    # Anything a correction was actually applied to, mechanically or in context.
+    # These are unmatched as written but resolved in the reading that scored.
+    corrected = {row["original"] for row in result["audit"]["lenient"]
+                 if row.get("corrected")}
+    corrected |= {d["original"] for d in decisions.values() if d.get("corrected")}
+    # NEVER RESOLVED: no match of its own, and no correction to give it one.
+    # Coverage's own definition is score-eligible words, and a word the scorer
+    # never saw is not one.
+    unresolved |= {(r.get("token") or "") for r in written
+                   if not r.get("matched") and (r.get("token") or "") not in corrected}
     names = {d["original"] for d in decisions.values()
              if d["answer"] == "proper_noun"}
     eligible = [r for r in written
