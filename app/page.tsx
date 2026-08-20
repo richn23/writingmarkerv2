@@ -795,19 +795,37 @@ function AiBadge() {
 // "spelling-corrected" on this screen, and a level colour that drifted towards
 // it would blur the two signals a word chip has to carry at once.
 const BAND_COLOUR: Record<string, { bg: string; fg: string }> = {
-  "Pre-A1": { bg: "#e8edf3", fg: "#26333f" },
-  "A1":     { bg: "#d2dce8", fg: "#26333f" },
-  "A1+":    { bg: "#b9c9dc", fg: "#22303c" },
-  "A2":     { bg: "#9fb5cf", fg: "#1d2c38" },
-  "A2+":    { bg: "#85a2c3", fg: "#1d2c38" },
-  "B1":     { bg: "#6b8fb7", fg: "#ffffff" },
-  "B1+":    { bg: "#5279a6", fg: "#ffffff" },
-  "B2":     { bg: "#3f6493", fg: "#ffffff" },
-  "B2+":    { bg: "#2f5080", fg: "#ffffff" },
-  "C1":     { bg: "#223e69", fg: "#ffffff" },
-  "C2":     { bg: "#16294a", fg: "#ffffff" },
-  none:     { bg: "#f1f0ed", fg: "#8b8a84" },   // not in the reference list
+  // A1 family, slate
+  "Pre-A1": { bg: "#edf0f3", fg: "#26333f" },
+  "A1":     { bg: "#dbe2e9", fg: "#26333f" },
+  "A1+":    { bg: "#c3cedb", fg: "#22303c" },
+  // A2 family, green
+  "A2":     { bg: "#d7e9d2", fg: "#1f3320" },
+  "A2+":    { bg: "#aed5a6", fg: "#1c2e1d" },
+  // B1 family, blue
+  "B1":     { bg: "#b3cdec", fg: "#16283f" },
+  "B1+":    { bg: "#7ea9de", fg: "#ffffff" },
+  // B2 family, purple
+  "B2":     { bg: "#c8b8e6", fg: "#241a3d" },
+  "B2+":    { bg: "#a289d3", fg: "#ffffff" },
+  // C1, amber
+  "C1":     { bg: "#c08a2e", fg: "#ffffff" },
+  // C2, charcoal: top of the scale, and the only one that cannot be mistaken
+  // for any other family at a glance.
+  "C2":     { bg: "#33383d", fg: "#ffffff" },
+  none:     { bg: "#f6f5f2", fg: "#8b8a84" },   // not in the reference list
 };
+
+// Which bands share a hue. Used only to space the legend, so the families read
+// as families rather than as eleven unrelated swatches.
+const BAND_FAMILIES: string[][] = [
+  ["Pre-A1", "A1", "A1+"],
+  ["A2", "A2+"],
+  ["B1", "B1+"],
+  ["B2", "B2+"],
+  ["C1"],
+  ["C2"],
+];
 
 const SCALE_BANDS = BANDS.filter((b) => b !== "unmatched");
 
@@ -817,12 +835,18 @@ function bandColour(band: string | null | undefined) {
 
 function CefrLegend() {
   return (
-    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11.5, color: C.ink2, marginBottom: 10 }}>
-      {SCALE_BANDS.map((b) => (
-        <span key={b} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <i style={{ width: 11, height: 11, borderRadius: 3, background: BAND_COLOUR[b].bg,
-                      border: `1px solid ${C.rule}`, display: "inline-block" }} />
-          {b}
+    <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center",
+                  fontSize: 11.5, color: C.ink2, marginBottom: 10 }}>
+      {BAND_FAMILIES.map((family) => (
+        // Tight inside a family, loose between them: the grouping is the point.
+        <span key={family[0]} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+          {family.map((b) => (
+            <span key={b} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <i style={{ width: 11, height: 11, borderRadius: 3, background: BAND_COLOUR[b].bg,
+                          border: `1px solid ${C.rule}`, display: "inline-block" }} />
+              {b}
+            </span>
+          ))}
         </span>
       ))}
       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -1549,17 +1573,30 @@ function VocabularyProfileTab({
 
   // Band per word, from the engine's own records rather than a second lookup.
   // `written` carries the as-written forms; `full` the intent reading's stream.
-  const infoOfWritten = useMemo(() => {
-    const m = new Map<string, Word>();
-    for (const w of d.views.written) m.set(w.word.toLowerCase(), w);
-    return (w: string) => m.get(w) ?? null;
-  }, [d.views.written]);
-
   const infoOfIntended = useMemo(() => {
     const m = new Map<string, Word>();
     for (const w of [...d.views.full, ...d.views.distinct]) m.set(w.word.toLowerCase(), w);
-    return (w: string) => m.get(w) ?? null;
+    return m;
   }, [d.views.full, d.views.distinct]);
+
+  // `views.written` is the as-written DISTINCT CONTENT words, so function words
+  // are not in it. Looking a word up there alone made "the", "my" and "was"
+  // render as "not in the reference list" on the left while the same words were
+  // banded on the right, which is nonsense: they are in the list.
+  //
+  // Falling back to the intent reading's map is safe precisely because a word
+  // only appears in it under the form the engine ended up reading. An unchanged
+  // word has the same form in both texts and resolves correctly; a misspelling
+  // does not appear there at all, so `vilage` and `bote` still show as not in
+  // the list on the left, which is the truth about the text as written.
+  const infoOfWritten = useMemo(() => {
+    const m = new Map<string, Word>();
+    for (const w of d.views.written) m.set(w.word.toLowerCase(), w);
+    return (w: string) => m.get(w) ?? infoOfIntended.get(w) ?? null;
+  }, [d.views.written, infoOfIntended]);
+
+  const infoOfIntendedFn = useMemo(
+    () => (w: string) => infoOfIntended.get(w) ?? null, [infoOfIntended]);
 
   // The forms that ARE a correction, i.e. what a misspelling was read as. Marked
   // on the intended text only — the as-written script has no corrections in it
@@ -1597,16 +1634,17 @@ function VocabularyProfileTab({
         {/* 1. The two scripts. */}
         <h2 style={{ ...S.h2, marginTop: 6 }}>The two scripts</h2>
         <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 10 }}>
-          Every word is classified by its GSE level. The fill groups those levels into six bands so
-          the script stays readable; hover a word for its exact GSE number, its level, and the
-          dictionary sense the engine matched.
+          Every word is classified by its GSE level. One colour per CEFR level, shaded within it,
+          so A2 and A2+ read as the same level at different strengths rather than as two unrelated
+          bands. Hover a word for its exact GSE number, its level, and the dictionary sense the
+          engine matched.
         </p>
         <CefrLegend />
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
           <ScriptView title="As written" text={d.text}
                       infoOf={infoOfWritten} correctedFrom={new Map()} />
           <ScriptView title="Intended reading" text={intendedText}
-                      infoOf={infoOfIntended} correctedFrom={correctedFrom}
+                      infoOf={infoOfIntendedFn} correctedFrom={correctedFrom}
                       note="Hover any word for its GSE number and level. A red outline marks a word the spelling pass read differently from what was written." />
         </div>
 
