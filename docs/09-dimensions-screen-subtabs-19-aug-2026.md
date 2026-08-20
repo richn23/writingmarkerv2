@@ -1,3 +1,11 @@
+> **SUPERSEDED, 20 Aug 2026.** The two-tab split described below was built,
+> then replaced by the structure in the 20 Aug brief: screen 4 became
+> Evidence Collection (four tabs, evidence gathering only) and dimension
+> scoring moved to screen 5. The tab-row pattern this doc established —
+> nested pills, `S.step()` styling, screen-local `useState`, one-line
+> additions to the tab list — was carried over unchanged. Kept as the
+> record of why that pattern exists.
+
 # Follow-up for Claude Code — split screen 4 into per-construct tabs
 
 Richard's direction, from a screenshot of the current Dimensions screen: it

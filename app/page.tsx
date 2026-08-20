@@ -173,29 +173,35 @@ const SCREENS = [
   { key: "landing", label: "1. Landing" },
   { key: "question", label: "2. Question" },
   { key: "translate", label: "3. Translate" },
-  { key: "dimensions", label: "4. Dimensions" },
-  { key: "evidence", label: "5. Evidence" },
+  { key: "evidence_collection", label: "4. Evidence Collection" },
+  { key: "dimension_scoring", label: "5. Dimension scoring" },
   { key: "final", label: "6. Final score" },
 ] as const;
 type ScreenKey = typeof SCREENS[number]["key"];
 
-// Screen 4's own tabs, one level in from SCREENS above. Constructs are profiled
-// one at a time — Vocabulary and Spelling together, because they are scored
-// from the same reading and read as a pair, then each later construct in its
-// own tab as it gets built.
+// Screen 4's own tabs, one level in from SCREENS above. Each tab gathers
+// evidence for one construct, built module by module. Screen 5 is where that
+// evidence gets turned into dimension scores; this screen does not score
+// dimensions and must not start to.
 //
-// These are the underlying CONSTRUCTS, not the six dimensions on the Landing
-// screen. How the two lists map onto each other is not settled, so nothing here
-// claims a mapping and no further tabs are pre-named — a construct gets a tab
-// when someone decides it has one, not because this list guessed at it.
+// NO TAB-TO-DIMENSION MAPPING LIVES HERE, or anywhere else in this file. Which
+// dimensions each module eventually informs is still being decided and will
+// change as modules land, so a guess encoded now would be wrong in a way that
+// is hard to find later. The tabs name what is measured, never what it feeds.
 //
-// To add one: an entry here, plus a branch in DimensionsScreen's content
-// dispatch. `built: false` needs only the entry — the placeholder is generic.
-const CONSTRUCT_TABS = [
-  { key: "vocab_spelling", label: "Vocabulary and Spelling profile", built: true },
+// The Vocabulary tab covers spelling too — `DetailView` already reports both as
+// two independent headline scores — so the label does not enumerate them.
+//
+// To add one: an entry here, plus a branch in the content dispatch inside
+// EvidenceCollectionScreen. `built: false` needs only the entry, because the
+// placeholder is written from the label alone.
+const EVIDENCE_TABS = [
+  { key: "vocab_spelling", label: "Vocabulary profile", built: true },
   { key: "grammar", label: "Grammar profile", built: false },
+  { key: "task_analysis", label: "Task Analysis", built: false },
+  { key: "additional_metrics", label: "Additional Metrics", built: false },
 ] as const;
-type ConstructKey = typeof CONSTRUCT_TABS[number]["key"];
+type EvidenceKey = typeof EVIDENCE_TABS[number]["key"];
 
 /* ----------------------------------------------------------------- styles */
 
@@ -1228,12 +1234,12 @@ function TranslateScreen({
   );
 }
 
-function DimensionsScreen({ single, hasOverrides }: { single: Detail | null; hasOverrides: boolean }) {
-  // Local to this screen on purpose: switching construct tabs must never touch
-  // the outer `screen` state, so the "4. Dimensions" pill and the Back/Next
-  // flow between screens stay exactly where they were.
-  const [tab, setTab] = useState<ConstructKey>("vocab_spelling");
-  const active = CONSTRUCT_TABS.find((t) => t.key === tab)!;
+function EvidenceCollectionScreen({ single, hasOverrides }: { single: Detail | null; hasOverrides: boolean }) {
+  // Local to this screen on purpose: switching evidence tabs must never touch
+  // the outer `screen` state, so the "4. Evidence Collection" pill and the
+  // Back/Next flow between screens stay exactly where they were.
+  const [tab, setTab] = useState<EvidenceKey>("vocab_spelling");
+  const active = EVIDENCE_TABS.find((t) => t.key === tab)!;
 
   // WHICH READING THIS IS has to be on the screen, not inferred. Showing
   // first-pass numbers with no indication that they predate a marker's
@@ -1241,9 +1247,9 @@ function DimensionsScreen({ single, hasOverrides }: { single: Detail | null; has
   // to prevent.
   const fromMarker = single?.interpretation_source === "marker";
 
-  // Every scored construct reads the same interpretation, so the banners belong
-  // to the screen rather than to the Vocabulary tab — a Grammar profile built
-  // later needs them unchanged, not reimplemented.
+  // Every evidence module reads the same interpretation, so the banners belong
+  // to the screen rather than to the Vocabulary tab — a module built later needs
+  // them unchanged, not reimplemented.
   const banners = single ? (
     <>
       <div style={{ ...S.note, borderLeftColor: fromMarker ? "#5c9e69" : C.rule, marginBottom: hasOverrides ? 8 : 16 }}>
@@ -1277,11 +1283,12 @@ function DimensionsScreen({ single, hasOverrides }: { single: Detail | null; has
 
   return (
     <div>
-      <h1 style={S.h1}>Dimension scoring</h1>
+      <h1 style={S.h1}>Evidence Collection</h1>
       <p style={S.sub}>
-        Each construct is profiled in its own tab here, reading from the approved interpretation
-        on the Translate screen rather than re-asking a model what the text means. Vocabulary and
-        Spelling are built; the rest get a tab as they are.
+        Each tab gathers the evidence for one construct, reading from the approved interpretation
+        on the Translate screen rather than re-asking a model what the text means. Dimension
+        scoring happens on the next screen, from whatever has been built here. Vocabulary is
+        built; the rest get a tab as they are.
       </p>
 
       {/* Second-level navigation. Same pill styling as ScreenNav — one visual
@@ -1289,7 +1296,7 @@ function DimensionsScreen({ single, hasOverrides }: { single: Detail | null; has
           nothing behind it yet; it is still clickable, because saying so
           plainly is better than a dead control. */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
-        {CONSTRUCT_TABS.map((t) => (
+        {EVIDENCE_TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -1307,16 +1314,16 @@ function DimensionsScreen({ single, hasOverrides }: { single: Detail | null; has
         <div style={S.card}>
           <h3 style={{ ...S.h3, marginTop: 0 }}>Not built yet</h3>
           <p style={{ fontSize: 14, color: C.ink2, lineHeight: 1.6, marginBottom: 0 }}>
-            There is no {active.label.replace(/ profile$/, "").toLowerCase()} profile anywhere in
-            this codebase yet — no detector, no scoring, no partial version. This tab exists so the
-            shape of the screen is visible, not because anything behind it is half-working. The
-            corresponding review section on the Translate screen says the same thing.
+            There is no <b>{active.label}</b> module in this codebase — nothing detects it, nothing
+            measures it, and there is no partial version running behind this tab. It is here so the
+            shape of the screen is visible while the rest gets built, and it will stay empty until
+            the module behind it exists.
           </p>
         </div>
       ) : !single ? (
         <div style={S.note}>
           No sample has been scored yet. Run one on the <b>Question</b> screen, then come back
-          here to see the vocabulary and spelling profile.
+          here to see the vocabulary profile.
         </div>
       ) : (
         <>
@@ -1931,18 +1938,19 @@ export default function Page() {
         />
       )}
 
-      {screen === "dimensions" && (
-        <DimensionsScreen single={current} hasOverrides={overridesDirty} />
+      {screen === "evidence_collection" && (
+        <EvidenceCollectionScreen single={current} hasOverrides={overridesDirty} />
       )}
 
-      {screen === "evidence" && (
+      {screen === "dimension_scoring" && (
         <ComingSoonScreen
-          title="Evidence"
-          blurb="Per-metric traceability and adjustable weighting, once more than one dimension exists to weigh."
+          title="Dimension scoring"
+          blurb="Where the evidence gathered on the Evidence Collection screen is turned into a score for each of the six dimensions. Not built: one evidence module exists so far, so there is nothing to combine yet."
           items={[
-            "A breakdown of every dimension's contribution to the final score",
+            "A score for each of the six dimensions, built from the evidence modules on screen 4",
+            "The evidence behind each score, traceable back to the module that produced it",
+            "Which evidence informs which dimension — a mapping still being decided as modules are built, and deliberately not guessed at here",
             "Adjustable weighting between dimensions",
-            "Links back into each dimension's own evidence trail",
           ]}
         />
       )}
@@ -1954,7 +1962,7 @@ export default function Page() {
           items={[
             "One combined 0–100 score across all six dimensions",
             "The CEFR band that score maps to",
-            "A link back to the Evidence screen for how it was reached",
+            "A link back to the Dimension scoring screen for how it was reached",
           ]}
         />
       )}
