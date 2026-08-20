@@ -359,9 +359,19 @@ function BandChart({ bands }: { bands: Detail["bands"] }) {
 
 /* ------------------------------------------------------- the detail panel */
 
-function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
+// `part` lets the Evidence Collection tab draw these blocks in the order the
+// 20 Aug brief specifies — two scripts, then the confident level, then the
+// profile — without any of them being rewritten or duplicated. "all" is the
+// default and renders everything in the original order, which is what the batch
+// drill-down still uses.
+type DetailPart = "all" | "vocab_level" | "vocab_profile" | "spelling";
+
+function DetailView({ d, onBack, part = "all" }: {
+  d: Detail; onBack?: () => void; part?: DetailPart;
+}) {
   const [view, setView] = useState<"distinct" | "content" | "full">("distinct");
   const sc = d.score;
+  const show = (k: DetailPart) => part === "all" || part === k;
 
   return (
     <div>
@@ -369,6 +379,8 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
         <button style={{ ...S.btn2, marginBottom: 14 }} onClick={onBack}>← back to the batch</button>
       ) : null}
 
+      {show('all') ? (
+        <>
       <h2 style={{ ...S.h2, marginTop: 0 }}>{d.id}</h2>
       {d.meta && Object.keys(d.meta).length ? (
         <p style={S.sub}>
@@ -386,7 +398,11 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
           </ul>
         </div>
       ) : null}
+        </>
+      ) : null}
 
+      {show('all') ? (
+        <>
       {/* TWO SCORES, both 0-100, both from the same reading, deliberately
           independent. Across the batch of 100 they correlate at r = 0.20, so a
           student can be A2 vocabulary with poor spelling or Pre-A1 spelled
@@ -436,7 +452,11 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
           </div>
         </div>
       ) : null}
+        </>
+      ) : null}
 
+      {show('vocab_level') ? (
+        <>
       {/* ---- stage 3: the score ---- */}
       <div style={S.card}>
         {sc.assigned ? (
@@ -537,14 +557,22 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
           </div>
         )}
       </div>
+        </>
+      ) : null}
 
+      {show('vocab_level') ? (
+        <>
       <div style={S.grid}>
         <Tile k="Words" v={d.words} n={`${d.distinct} distinct content words`} />
         <Tile k="Unmatched" v={`${d.unmatched_written} → ${d.unmatched_corrected}`} n="written → corrected" />
         <Tile k="Corrections" v={d.corrections} n="see the Translate screen" />
         <Tile k="Not language" v={d.junk_tokens} n={`${d.junk.length} distinct forms`} />
       </div>
+        </>
+      ) : null}
 
+      {show('vocab_level') ? (
+        <>
       {d.junk.length ? (
         <div style={S.card}>
           <h3 style={{ ...S.h3, marginTop: 0 }}>Excluded as not language</h3>
@@ -561,6 +589,10 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
           </table>
         </div>
       ) : null}
+        </>
+      ) : null}
+      {show('vocab_level') ? (
+        <>
       {/* Coverage qualifies the LEVEL, so it stays with the score even though
           the good-spelling version it describes now reads on Translate: a level
           built from part of a sample has to say so next to itself.
@@ -589,10 +621,18 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
         </div>
       ) : null}
 
+        </>
+      ) : null}
 
+      {show('vocab_profile') ? (
+        <>
       {/* ---- the profile ---- */}
       <h2 style={S.h2}>Vocabulary profile</h2>
       <div style={S.card}><BandChart bands={d.bands} /></div>
+        </>
+      ) : null}
+      {show('spelling') ? (
+        <>
 
       {/* CEFR treats orthographic control as a trait of its own, separate from
           vocabulary range — so it gets its own profile, and it never feeds a
@@ -633,6 +673,10 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
           </div>
         </>
       ) : null}
+        </>
+      ) : null}
+      {show('spelling') ? (
+        <>
 
       {/* The spelling score's arithmetic, so it can be checked by hand. The
           denominator is the anti-circularity mechanism: the penalty is
@@ -683,6 +727,10 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
           </div>
         </>
       ) : null}
+        </>
+      ) : null}
+      {show('vocab_level') ? (
+        <>
 
       {/* The proposals themselves — accepted and rejected alike — are reviewed
           in the Vocabulary review below, which is also where a marker overrides them.
@@ -691,7 +739,11 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
       {d.intent_note ? (
         <div style={{ ...S.card, ...S.note }}>Intent reading: {d.intent_note}.</div>
       ) : null}
+        </>
+      ) : null}
 
+      {show('spelling') ? (
+        <>
       <div style={S.card}>
         <h3 style={{ ...S.h3, marginTop: 0 }}>
           {new Set(d.readings.map((r: any) => r.confident_band)).size === 1
@@ -742,7 +794,11 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
           </tbody>
         </table>
       </div>
+        </>
+      ) : null}
 
+      {show('vocab_profile') ? (
+        <>
       <div style={S.card}>
         <div style={{ ...S.tabRow, marginBottom: 12 }}>
           {(["distinct", "content", "full"] as const).map((v) => (
@@ -754,6 +810,8 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
         </div>
         <WordChips words={d.views[view]} />
       </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -774,6 +832,209 @@ function AiBadge() {
     }}>
       AI-generated
     </span>
+  );
+}
+
+/* ------------------------------------------------ CEFR grouping and colour */
+// SIX GROUPS, NOT ELEVEN. The eleven assessment bands are the right grain for a
+// score and far too fine for colour — nobody reads A2 against A2+ by hue. These
+// are the conventional CEFR groupings, and they are what the profile donut
+// counts by.
+//
+// Pre-A1 folds into Beginner here. That is a presentation choice for the colour
+// layer only; every band-level figure elsewhere on the screen still keeps
+// Pre-A1 distinct, because on this project Pre-A1 is a real reported level and
+// not a rounding of A1.
+const CEFR_GROUPS = [
+  { key: "beginner", label: "Beginner", bands: ["Pre-A1", "A1", "A1+"] },
+  { key: "elementary", label: "Elementary", bands: ["A2", "A2+"] },
+  { key: "intermediate", label: "Intermediate", bands: ["B1", "B1+"] },
+  { key: "upper", label: "Upper-Intermediate", bands: ["B2", "B2+"] },
+  { key: "advanced", label: "Advanced", bands: ["C1"] },
+  { key: "proficiency", label: "Proficiency", bands: ["C2"] },
+] as const;
+
+// A sequential ramp, not six unrelated hues: level is ordinal, so the colour
+// has to read as "further along", not "a different category". Deliberately one
+// hue family, kept away from the reds — red already means "corrected" on this
+// screen and the two signals must never be confused.
+const GROUP_COLOUR: Record<string, { bg: string; fg: string }> = {
+  beginner: { bg: "#dce4ee", fg: "#26333f" },
+  elementary: { bg: "#a9c0da", fg: "#1d2c38" },
+  intermediate: { bg: "#6f97c2", fg: "#ffffff" },
+  upper: { bg: "#446f9f", fg: "#ffffff" },
+  advanced: { bg: "#2b4c78", fg: "#ffffff" },
+  proficiency: { bg: "#1a2f50", fg: "#ffffff" },
+  none: { bg: "#f1f0ed", fg: "#8b8a84" },     // not in the reference list
+};
+
+function groupForBand(band: string | null | undefined) {
+  if (!band) return "none";
+  const g = CEFR_GROUPS.find((x) => (x.bands as readonly string[]).includes(band));
+  return g ? g.key : "none";
+}
+
+function CefrLegend() {
+  return (
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11.5, color: C.ink2, marginBottom: 10 }}>
+      {CEFR_GROUPS.map((g) => (
+        <span key={g.key} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <i style={{ width: 11, height: 11, borderRadius: 3, background: GROUP_COLOUR[g.key].bg,
+                      border: `1px solid ${C.rule}`, display: "inline-block" }} />
+          {g.label}
+        </span>
+      ))}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+        <i style={{ width: 11, height: 11, borderRadius: 3, background: "#fff",
+                    border: `2px solid ${C.bad}`, display: "inline-block" }} />
+        spelling-corrected
+      </span>
+    </div>
+  );
+}
+
+/* --------------------------------------------------- the two scripts, side by side */
+// As-written and intended, every word carrying its CEFR group as fill.
+//
+// TWO SIGNALS ON ONE CHIP. Level is the fill; "this word was corrected" is a red
+// outline, on the intended text only. Keeping them on different visual channels
+// is what stops them fighting — a corrected B2 word is still visibly B2.
+function ScriptView({ title, text, bandOf, correctedForms, note }: {
+  title: string;
+  text: string;
+  bandOf: (word: string) => string | null;
+  correctedForms: Set<string>;
+  note?: string;
+}) {
+  // Split keeping the separators, so punctuation and spacing survive and the
+  // panel reads as the student's script rather than a bag of words.
+  const parts = text.split(/([A-Za-z']+)/);
+  return (
+    <div style={{ flex: "1 1 320px", minWidth: 280 }}>
+      <label style={S.label}>{title}</label>
+      <div style={{ ...S.field, minHeight: 90, lineHeight: 2.1, whiteSpace: "pre-wrap" }}>
+        {parts.map((tok, i) => {
+          if (!/^[A-Za-z']+$/.test(tok)) return <span key={i}>{tok}</span>;
+          const lower = tok.toLowerCase();
+          const g = groupForBand(bandOf(lower));
+          const col = GROUP_COLOUR[g];
+          const corrected = correctedForms.has(lower);
+          return (
+            <span
+              key={i}
+              title={`${tok} — ${g === "none" ? "not in the reference list" : CEFR_GROUPS.find((x) => x.key === g)?.label}${corrected ? " · spelling-corrected" : ""}`}
+              style={{
+                background: col.bg, color: col.fg,
+                padding: "1px 5px", borderRadius: 4,
+                border: corrected ? `2px solid ${C.bad}` : "2px solid transparent",
+                boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone",
+              }}
+            >
+              {tok}
+            </span>
+          );
+        })}
+      </div>
+      {note ? <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 6, marginBottom: 0 }}>{note}</p> : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------- the profile donut */
+// Distribution of the scored words across the six groups. Built here rather
+// than relocated: nothing of this shape existed in the codebase.
+function ProfileDonut({ words }: { words: Word[] }) {
+  const scored = words.filter((w) => w.matched && !w.junk);
+  const total = scored.length;
+  const rows = CEFR_GROUPS.map((g) => {
+    const inGroup = scored.filter((w) => groupForBand(w.band) === g.key);
+    return {
+      ...g,
+      count: inGroup.length,
+      pct: total ? Math.round((1000 * inGroup.length) / total) / 10 : 0,
+      // Highest-GSE words first: the examples should be the ones that earned
+      // the group, not whichever happened to come first in the script.
+      samples: [...inGroup].sort((a, b) => (b.gse ?? 0) - (a.gse ?? 0)).slice(0, 4).map((w) => w.word),
+    };
+  }).filter((r) => r.count > 0);
+
+  const R = 62, STROKE = 26, CIRC = 2 * Math.PI * R;
+  let offset = 0;
+
+  return (
+    <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center" }}>
+      <svg width={2 * (R + STROKE / 2) + 4} height={2 * (R + STROKE / 2) + 4} role="img"
+           aria-label="Vocabulary distribution across CEFR groups">
+        <g transform={`translate(${R + STROKE / 2 + 2}, ${R + STROKE / 2 + 2}) rotate(-90)`}>
+          {rows.map((r) => {
+            const len = (r.pct / 100) * CIRC;
+            const el = (
+              <circle
+                key={r.key} r={R} fill="none"
+                stroke={GROUP_COLOUR[r.key].bg} strokeWidth={STROKE}
+                strokeDasharray={`${len} ${CIRC - len}`} strokeDashoffset={-offset}
+              />
+            );
+            offset += len;
+            return el;
+          })}
+        </g>
+        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central"
+              style={{ fontSize: 22, fontWeight: 700, fill: C.ink }}>{total}</text>
+        <text x="50%" y="50%" dy="20" textAnchor="middle" dominantBaseline="central"
+              style={{ fontSize: 10.5, fill: C.ink3 }}>words</text>
+      </svg>
+      <div style={{ flex: "1 1 300px", minWidth: 260 }}>
+        <table style={S.table}>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key}>
+                <td style={{ ...S.td, width: 18 }}>
+                  <i style={{ width: 11, height: 11, borderRadius: 3, background: GROUP_COLOUR[r.key].bg,
+                              border: `1px solid ${C.rule}`, display: "inline-block" }} />
+                </td>
+                <td style={{ ...S.td, fontWeight: 600 }}>{r.label}</td>
+                <td style={{ ...S.td, ...S.num, ...S.mono }}>{r.pct}%</td>
+                <td style={{ ...S.td, ...S.num, color: C.ink3 }}>{r.count}</td>
+                <td style={{ ...S.td, color: C.ink2, fontSize: 12 }}>{r.samples.join(", ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!total ? <p style={{ fontSize: 13, color: C.ink3 }}>No scored words to profile.</p> : null}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ collapsible */
+function Collapsible({ title, headline, sub, open, onToggle, children }: {
+  title: string; headline: React.ReactNode; sub?: string;
+  open: boolean; onToggle: () => void; children: React.ReactNode;
+}) {
+  return (
+    <div style={{ ...S.card, padding: 0, overflow: "hidden" }}>
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 14,
+          padding: "16px 18px", background: "transparent", border: "none",
+          cursor: "pointer", textAlign: "left", font: "inherit", color: "inherit",
+        }}
+      >
+        <span style={{ fontSize: 13, color: C.ink3, width: 14 }}>{open ? "▾" : "▸"}</span>
+        <span style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em",
+                       color: C.ink2, fontWeight: 600, minWidth: 110 }}>{title}</span>
+        <span style={{ marginLeft: "auto", display: "flex", alignItems: "baseline", gap: 8 }}>
+          {headline}
+        </span>
+      </button>
+      {sub && !open ? (
+        <div style={{ padding: "0 18px 14px 46px", fontSize: 12.5, color: C.ink3 }}>{sub}</div>
+      ) : null}
+      {open ? <div style={{ padding: "0 18px 18px" }}>{children}</div> : null}
+    </div>
   );
 }
 
@@ -1270,6 +1531,151 @@ function TranslateScreen({ single }: {
   );
 }
 
+/* -------------------------------------------- the vocabulary profile tab */
+// Two collapsed rows by default, each showing only its metric name and one
+// headline figure. Everything that used to arrive at once now sits behind an
+// expand — the 20 Aug feedback was that landing on this tab showed both scores,
+// the whole scoring table and the full word list simultaneously.
+//
+// Nothing was dropped in the reorganisation. Every block DetailView rendered is
+// still rendered, just distributed across the two sections by `part`.
+
+function VocabularyProfileTab({
+  d, firstPass, overrides, setOverrides, onRescore, rescoring, rescoreError, dirty,
+}: {
+  d: Detail;
+  firstPass: Detail | null;
+  overrides: Overrides;
+  setOverrides: (fn: (prev: Overrides) => Overrides) => void;
+  onRescore: () => void;
+  rescoring: boolean;
+  rescoreError: string | null;
+  dirty: boolean;
+}) {
+  // Independent, so opening one never closes the other.
+  const [openVocab, setOpenVocab] = useState(false);
+  const [openSpelling, setOpenSpelling] = useState(false);
+
+  const sc = d.score;
+
+  // Band per word, from the engine's own records rather than a second lookup.
+  // `written` carries the as-written forms; `full` the intent reading's stream.
+  const bandOfWritten = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const w of d.views.written) m.set(w.word.toLowerCase(), w.band);
+    return (w: string) => m.get(w) ?? null;
+  }, [d.views.written]);
+
+  const bandOfIntended = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const w of [...d.views.full, ...d.views.distinct]) m.set(w.word.toLowerCase(), w.band);
+    return (w: string) => m.get(w) ?? null;
+  }, [d.views.full, d.views.distinct]);
+
+  // The forms that ARE a correction, i.e. what a misspelling was read as. Marked
+  // on the intended text only — the as-written script has no corrections in it
+  // by definition.
+  const correctedForms = useMemo(() => {
+    const out = new Set<string>();
+    for (const c of d.spelling_changes ?? []) if (c.read_as) out.add(c.read_as.toLowerCase());
+    for (const r of d.audit ?? []) if (r.corrected) out.add(r.corrected.toLowerCase());
+    return out;
+  }, [d.spelling_changes, d.audit]);
+
+  const intendedText = d.corrected_sample ?? d.corrected_text;
+
+  return (
+    <>
+      <Collapsible
+        title="Vocabulary"
+        open={openVocab}
+        onToggle={() => setOpenVocab((v) => !v)}
+        sub={sc.assigned ? `${sc.credible_count} credible words · ${sc.sample_label}` : undefined}
+        headline={
+          <>
+            <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em",
+                           color: sc.assigned ? C.written : C.ink3 }}>
+              {sc.assigned ? sc.confident.band : "—"}
+            </span>
+            <span style={{ fontSize: 12, color: C.ink3 }}>estimated CEFR level</span>
+          </>
+        }
+      >
+        {/* 1. The two scripts. */}
+        <h2 style={{ ...S.h2, marginTop: 6 }}>The two scripts</h2>
+        <CefrLegend />
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          <ScriptView title="As written" text={d.text}
+                      bandOf={bandOfWritten} correctedForms={new Set()} />
+          <ScriptView title="Intended reading" text={intendedText}
+                      bandOf={bandOfIntended} correctedForms={correctedForms}
+                      note="Red outline marks a word the spelling pass read differently from what was written." />
+        </div>
+
+        {/* 2. Confident lexical level, then the arithmetic behind it. */}
+        <h2 style={S.h2}>Confident lexical level</h2>
+        <div style={S.card}>
+          {sc.assigned ? (
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 38, fontWeight: 700, letterSpacing: "-0.02em", color: C.written }}>
+                {sc.confident.band}
+              </span>
+              <span style={{ fontSize: 16, color: C.ink2 }}>score {sc.confident.score} / 100</span>
+              <span style={{ fontSize: 13, color: C.ink3 }}>
+                GSE {sc.confident.gse} · {sc.sample_label} · {sc.credible_count} credible words
+              </span>
+            </div>
+          ) : (
+            <div style={{ fontSize: 15 }}>
+              <b>No level assigned</b>
+              <div style={{ color: C.ink2, fontSize: 13, marginTop: 4 }}>{sc.note}</div>
+            </div>
+          )}
+        </div>
+        <DetailView d={d} part="vocab_level" />
+
+        {/* 3. The profile. */}
+        <h2 style={S.h2}>The vocabulary profile</h2>
+        <div style={S.card}>
+          <ProfileDonut words={d.views.distinct} />
+        </div>
+        <DetailView d={d} part="vocab_profile" />
+
+        <VocabularyReview
+          single={d}
+          firstPass={firstPass}
+          overrides={overrides}
+          setOverrides={setOverrides}
+          onRescore={onRescore}
+          rescoring={rescoring}
+          rescoreError={rescoreError}
+          dirty={dirty}
+        />
+      </Collapsible>
+
+      <Collapsible
+        title="Spelling"
+        open={openSpelling}
+        onToggle={() => setOpenSpelling((v) => !v)}
+        sub={d.spelling_score_detail?.score != null
+          ? `${d.spelling_score_detail.attempted} words attempted · ${d.spelling_score_detail.errors} carried an error`
+          : `not scored — ${d.spelling_score_detail?.attempted ?? 0} attempted, ${d.spelling_score_detail?.minimum ?? 8} needed`}
+        headline={
+          <>
+            <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em",
+                           color: d.spelling_score_detail?.score != null ? "#5c9e69" : C.ink3 }}>
+              {d.spelling_score_detail?.score ?? "—"}
+            </span>
+            <span style={{ fontSize: 12, color: C.ink3 }}>/ 100</span>
+          </>
+        }
+      >
+        <DetailView d={d} part="spelling" />
+      </Collapsible>
+    </>
+  );
+}
+
 function EvidenceCollectionScreen({
   single, hasOverrides, firstPass, overrides, setOverrides, onRescore, rescoring, rescoreError, dirty,
 }: {
@@ -1379,19 +1785,16 @@ function EvidenceCollectionScreen({
           {banners}
           {/* Content dispatch. One branch per built tab. */}
           {tab === "vocab_spelling" ? (
-            <>
-              <DetailView d={single} />
-              <VocabularyReview
-                single={single}
-                firstPass={firstPass}
-                overrides={overrides}
-                setOverrides={setOverrides}
-                onRescore={onRescore}
-                rescoring={rescoring}
-                rescoreError={rescoreError}
-                dirty={dirty}
-              />
-            </>
+            <VocabularyProfileTab
+              d={single}
+              firstPass={firstPass}
+              overrides={overrides}
+              setOverrides={setOverrides}
+              onRescore={onRescore}
+              rescoring={rescoring}
+              rescoreError={rescoreError}
+              dirty={dirty}
+            />
           ) : null}
         </>
       )}
