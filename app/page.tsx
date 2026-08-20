@@ -110,6 +110,12 @@ type Detail = Summary & {
     summary_bullets: string[];
     communicative_level_band: string;
     communicative_level_descriptor: string;
+    // The case against each neighbouring band. Optional because a result
+    // scored before these fields existed will not carry them.
+    why_not_below?: string;
+    why_not_above?: string;
+    band_below?: string;
+    band_above?: string;
     effect_on_reader: string;
   } | null;
   communicative_error?: string | null;
@@ -305,54 +311,6 @@ function WordChips({ words }: { words: Word[] }) {
           </b>
         </span>
       ))}
-    </div>
-  );
-}
-
-function BandChart({ bands }: { bands: Detail["bands"] }) {
-  // As-written always stays visible: the spread between it and the most
-  // generous reading is the honest statement of how much of the score
-  // depends on reading through the spelling.
-  const series = [
-    { key: "original", label: "As written", color: C.written },
-    { key: "lenient", label: "After correction", color: C.corrected },
-    ...(bands["intent"] ? [{ key: "intent", label: "After intent", color: "#5c9e69" }] : []),
-  ];
-  const data: Record<string, Record<string, number>> = {};
-  for (const s of series) {
-    data[s.key] = {};
-    for (const row of bands[s.key] ?? []) data[s.key][row.band] = row.count;
-  }
-  const rows = BANDS.filter((b) => series.some((s) => data[s.key][b]));
-  const peak = Math.max(1, ...rows.flatMap((b) => series.map((s) => data[s.key][b] ?? 0)));
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 13, color: C.ink2 }}>
-        {series.map((s) => (
-          <span key={s.key}>
-            <i style={{ width: 11, height: 11, borderRadius: 3, background: s.color, display: "inline-block", marginRight: 6 }} />
-            {s.label}
-          </span>
-        ))}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "70px 1fr", gap: "5px 12px", alignItems: "center" }}>
-        {rows.map((b) => (
-          <div key={b} style={{ display: "contents" }}>
-            <div style={{ fontSize: 13, color: C.ink2, textAlign: "right" }}>{b}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "3px 0" }}>
-              {series.map((s) => {
-                const n = data[s.key][b] ?? 0;
-                return (
-                  <div key={s.key} title={`${s.label}, ${b}: ${n}`} style={{ position: "relative", height: 10 }}>
-                    <div style={{ width: `${(100 * n) / peak}%`, minWidth: 2, height: 10, background: s.color, borderRadius: "0 4px 4px 0" }} />
-                    <span style={{ position: "absolute", left: `calc(${(100 * n) / peak}% + 7px)`, top: -4, fontSize: 11.5, color: C.ink2 }}>{n}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -624,13 +582,6 @@ function DetailView({ d, onBack, part = "all" }: {
         </>
       ) : null}
 
-      {show('vocab_profile') ? (
-        <>
-      {/* ---- the profile ---- */}
-      <h2 style={S.h2}>Vocabulary profile</h2>
-      <div style={S.card}><BandChart bands={d.bands} /></div>
-        </>
-      ) : null}
       {show('spelling') ? (
         <>
 
@@ -835,56 +786,51 @@ function AiBadge() {
   );
 }
 
-/* ------------------------------------------------ CEFR grouping and colour */
-// SIX GROUPS, NOT ELEVEN. The eleven assessment bands are the right grain for a
-// score and far too fine for colour — nobody reads A2 against A2+ by hue. These
-// are the conventional CEFR groupings, and they are what the profile donut
-// counts by.
+/* --------------------------------------------------- CEFR band and colour */
+// One ramp across the eleven assessment bands, in scale order. Sequential
+// rather than eleven unrelated hues, because level is ordinal: the colour has
+// to read as "further along", not "a different category".
 //
-// Pre-A1 folds into Beginner here. That is a presentation choice for the colour
-// layer only; every band-level figure elsewhere on the screen still keeps
-// Pre-A1 distinct, because on this project Pre-A1 is a real reported level and
-// not a rounding of A1.
-const CEFR_GROUPS = [
-  { key: "beginner", label: "Beginner", bands: ["Pre-A1", "A1", "A1+"] },
-  { key: "elementary", label: "Elementary", bands: ["A2", "A2+"] },
-  { key: "intermediate", label: "Intermediate", bands: ["B1", "B1+"] },
-  { key: "upper", label: "Upper-Intermediate", bands: ["B2", "B2+"] },
-  { key: "advanced", label: "Advanced", bands: ["C1"] },
-  { key: "proficiency", label: "Proficiency", bands: ["C2"] },
-] as const;
-
-// A sequential ramp, not six unrelated hues: level is ordinal, so the colour
-// has to read as "further along", not "a different category". Deliberately one
-// hue family, kept away from the reds — red already means "corrected" on this
-// screen and the two signals must never be confused.
-const GROUP_COLOUR: Record<string, { bg: string; fg: string }> = {
-  beginner: { bg: "#dce4ee", fg: "#26333f" },
-  elementary: { bg: "#a9c0da", fg: "#1d2c38" },
-  intermediate: { bg: "#6f97c2", fg: "#ffffff" },
-  upper: { bg: "#446f9f", fg: "#ffffff" },
-  advanced: { bg: "#2b4c78", fg: "#ffffff" },
-  proficiency: { bg: "#1a2f50", fg: "#ffffff" },
-  none: { bg: "#f1f0ed", fg: "#8b8a84" },     // not in the reference list
+// Deliberately one hue family and deliberately not red. Red already means
+// "spelling-corrected" on this screen, and a level colour that drifted towards
+// it would blur the two signals a word chip has to carry at once.
+const BAND_COLOUR: Record<string, { bg: string; fg: string }> = {
+  "Pre-A1": { bg: "#e8edf3", fg: "#26333f" },
+  "A1":     { bg: "#d2dce8", fg: "#26333f" },
+  "A1+":    { bg: "#b9c9dc", fg: "#22303c" },
+  "A2":     { bg: "#9fb5cf", fg: "#1d2c38" },
+  "A2+":    { bg: "#85a2c3", fg: "#1d2c38" },
+  "B1":     { bg: "#6b8fb7", fg: "#ffffff" },
+  "B1+":    { bg: "#5279a6", fg: "#ffffff" },
+  "B2":     { bg: "#3f6493", fg: "#ffffff" },
+  "B2+":    { bg: "#2f5080", fg: "#ffffff" },
+  "C1":     { bg: "#223e69", fg: "#ffffff" },
+  "C2":     { bg: "#16294a", fg: "#ffffff" },
+  none:     { bg: "#f1f0ed", fg: "#8b8a84" },   // not in the reference list
 };
 
-function groupForBand(band: string | null | undefined) {
-  if (!band) return "none";
-  const g = CEFR_GROUPS.find((x) => (x.bands as readonly string[]).includes(band));
-  return g ? g.key : "none";
+const SCALE_BANDS = BANDS.filter((b) => b !== "unmatched");
+
+function bandColour(band: string | null | undefined) {
+  return BAND_COLOUR[band && BAND_COLOUR[band] ? band : "none"];
 }
 
 function CefrLegend() {
   return (
-    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11.5, color: C.ink2, marginBottom: 10 }}>
-      {CEFR_GROUPS.map((g) => (
-        <span key={g.key} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <i style={{ width: 11, height: 11, borderRadius: 3, background: GROUP_COLOUR[g.key].bg,
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11.5, color: C.ink2, marginBottom: 10 }}>
+      {SCALE_BANDS.map((b) => (
+        <span key={b} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <i style={{ width: 11, height: 11, borderRadius: 3, background: BAND_COLOUR[b].bg,
                       border: `1px solid ${C.rule}`, display: "inline-block" }} />
-          {g.label}
+          {b}
         </span>
       ))}
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <i style={{ width: 11, height: 11, borderRadius: 3, background: BAND_COLOUR.none.bg,
+                    border: `1px solid ${C.rule}`, display: "inline-block" }} />
+        not in the list
+      </span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
         <i style={{ width: 11, height: 11, borderRadius: 3, background: "#fff",
                     border: `2px solid ${C.bad}`, display: "inline-block" }} />
         spelling-corrected
@@ -899,11 +845,15 @@ function CefrLegend() {
 // TWO SIGNALS ON ONE CHIP. Level is the fill; "this word was corrected" is a red
 // outline, on the intended text only. Keeping them on different visual channels
 // is what stops them fighting — a corrected B2 word is still visibly B2.
-function ScriptView({ title, text, bandOf, correctedForms, note }: {
+function ScriptView({ title, text, infoOf, correctedFrom, note }: {
   title: string;
   text: string;
-  bandOf: (word: string) => string | null;
-  correctedForms: Set<string>;
+  // The engine's whole record for the word, not just its band: the GSE number
+  // is the classification, and the band is derived from it.
+  infoOf: (word: string) => Word | null;
+  // read-as form -> what the student actually wrote, so a corrected word can
+  // say which misspelling it came from.
+  correctedFrom: Map<string, string>;
   note?: string;
 }) {
   // Split keeping the separators, so punctuation and spacing survive and the
@@ -916,13 +866,25 @@ function ScriptView({ title, text, bandOf, correctedForms, note }: {
         {parts.map((tok, i) => {
           if (!/^[A-Za-z']+$/.test(tok)) return <span key={i}>{tok}</span>;
           const lower = tok.toLowerCase();
-          const g = groupForBand(bandOf(lower));
-          const col = GROUP_COLOUR[g];
-          const corrected = correctedForms.has(lower);
+          const info = infoOf(lower);
+          const col = bandColour(info?.band);
+          const wrote = correctedFrom.get(lower);
+          const corrected = wrote !== undefined;
+          // Everything the engine knows about this word, on hover. GSE number
+          // first because that is the actual classification; the band is a
+          // bucket derived from it.
+          const tip = [
+            tok,
+            info && info.gse != null
+              ? `GSE ${info.gse} \u00b7 ${info.band}`
+              : "not in the GSE reference list",
+            info?.definition || null,
+            corrected ? `spelling-corrected, written as "${wrote}"` : null,
+          ].filter(Boolean).join("\n");
           return (
             <span
               key={i}
-              title={`${tok} — ${g === "none" ? "not in the reference list" : CEFR_GROUPS.find((x) => x.key === g)?.label}${corrected ? " · spelling-corrected" : ""}`}
+              title={tip}
               style={{
                 background: col.bg, color: col.fg,
                 padding: "1px 5px", borderRadius: 4,
@@ -941,20 +903,26 @@ function ScriptView({ title, text, bandOf, correctedForms, note }: {
 }
 
 /* ------------------------------------------------------- the profile donut */
-// Distribution of the scored words across the six groups. Built here rather
-// than relocated: nothing of this shape existed in the codebase.
+// Distribution of the scored words across the eleven CEFR bands, in scale
+// order, sliced by the band each word's GSE number maps to.
 function ProfileDonut({ words }: { words: Word[] }) {
   const scored = words.filter((w) => w.matched && !w.junk);
   const total = scored.length;
-  const rows = CEFR_GROUPS.map((g) => {
-    const inGroup = scored.filter((w) => groupForBand(w.band) === g.key);
+  const rows = SCALE_BANDS.map((band) => {
+    const inBand = scored.filter((w) => w.band === band);
+    const gses = inBand.map((w) => w.gse).filter((g): g is number => g != null);
     return {
-      ...g,
-      count: inGroup.length,
-      pct: total ? Math.round((1000 * inGroup.length) / total) / 10 : 0,
-      // Highest-GSE words first: the examples should be the ones that earned
-      // the group, not whichever happened to come first in the script.
-      samples: [...inGroup].sort((a, b) => (b.gse ?? 0) - (a.gse ?? 0)).slice(0, 4).map((w) => w.word),
+      band,
+      count: inBand.length,
+      pct: total ? Math.round((1000 * inBand.length) / total) / 10 : 0,
+      gseRange: gses.length
+        ? (Math.min(...gses) === Math.max(...gses)
+            ? `GSE ${Math.min(...gses)}`
+            : `GSE ${Math.min(...gses)}-${Math.max(...gses)}`)
+        : "",
+      // Highest GSE first: the examples should be the words that earned the
+      // band, not whichever came first in the script.
+      samples: [...inBand].sort((a, b) => (b.gse ?? 0) - (a.gse ?? 0)).slice(0, 4).map((w) => w.word),
     };
   }).filter((r) => r.count > 0);
 
@@ -964,14 +932,14 @@ function ProfileDonut({ words }: { words: Word[] }) {
   return (
     <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center" }}>
       <svg width={2 * (R + STROKE / 2) + 4} height={2 * (R + STROKE / 2) + 4} role="img"
-           aria-label="Vocabulary distribution across CEFR groups">
+           aria-label="Vocabulary distribution across CEFR bands">
         <g transform={`translate(${R + STROKE / 2 + 2}, ${R + STROKE / 2 + 2}) rotate(-90)`}>
           {rows.map((r) => {
             const len = (r.pct / 100) * CIRC;
             const el = (
               <circle
-                key={r.key} r={R} fill="none"
-                stroke={GROUP_COLOUR[r.key].bg} strokeWidth={STROKE}
+                key={r.band} r={R} fill="none"
+                stroke={BAND_COLOUR[r.band].bg} strokeWidth={STROKE}
                 strokeDasharray={`${len} ${CIRC - len}`} strokeDashoffset={-offset}
               />
             );
@@ -984,16 +952,17 @@ function ProfileDonut({ words }: { words: Word[] }) {
         <text x="50%" y="50%" dy="20" textAnchor="middle" dominantBaseline="central"
               style={{ fontSize: 10.5, fill: C.ink3 }}>words</text>
       </svg>
-      <div style={{ flex: "1 1 300px", minWidth: 260 }}>
+      <div style={{ flex: "1 1 320px", minWidth: 280 }}>
         <table style={S.table}>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.key}>
+              <tr key={r.band}>
                 <td style={{ ...S.td, width: 18 }}>
-                  <i style={{ width: 11, height: 11, borderRadius: 3, background: GROUP_COLOUR[r.key].bg,
+                  <i style={{ width: 11, height: 11, borderRadius: 3, background: BAND_COLOUR[r.band].bg,
                               border: `1px solid ${C.rule}`, display: "inline-block" }} />
                 </td>
-                <td style={{ ...S.td, fontWeight: 600 }}>{r.label}</td>
+                <td style={{ ...S.td, fontWeight: 600 }}>{r.band}</td>
+                <td style={{ ...S.td, ...S.mono, color: C.ink3, fontSize: 11.5 }}>{r.gseRange}</td>
                 <td style={{ ...S.td, ...S.num, ...S.mono }}>{r.pct}%</td>
                 <td style={{ ...S.td, ...S.num, color: C.ink3 }}>{r.count}</td>
                 <td style={{ ...S.td, color: C.ink2, fontSize: 12 }}>{r.samples.join(", ")}</td>
@@ -1268,6 +1237,16 @@ function VocabularyReview({
   );
 }
 
+// One band up or down the eleven-band scale, or null at either end. Used to
+// name the two bands section 4 argues against.
+function bandNeighbour(band: string, step: -1 | 1): string | null {
+  const scale = BANDS.filter((b) => b !== "unmatched");
+  const i = scale.indexOf(band);
+  if (i < 0) return null;
+  const j = i + step;
+  return j >= 0 && j < scale.length ? scale[j] : null;
+}
+
 function TranslateScreen({ single }: {
   single: Detail | null;              // the freshest reading — override-adjusted if one exists
 }) {
@@ -1323,7 +1302,7 @@ function TranslateScreen({ single }: {
       <h1 style={S.h1}>Communicative Effect &amp; Translation</h1>
       <p style={S.sub}>
         Before any dimension is scored, this is where the model's reading of what the student
-        meant gets surfaced and checked. This screen interprets — it does not score.
+        meant gets surfaced and checked. This screen interprets; it does not score.
       </p>
 
       {!hasSample ? (
@@ -1337,7 +1316,7 @@ function TranslateScreen({ single }: {
       <div style={S.card}>
         <h3 style={{ ...S.h3, marginTop: 0 }}>1. As written / intended reading</h3>
         <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 14 }}>
-          The intended reading is AI-generated — a hypothesis about intent, not a fact about the text.
+          The intended reading is AI-generated: a hypothesis about intent, not a fact about the text.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginBottom: 14 }}>
           <div>
@@ -1349,7 +1328,7 @@ function TranslateScreen({ single }: {
             <div style={{ ...S.field, minHeight: 90, background: "#fff", color: C.corrected, whiteSpace: "pre-wrap" }}>{intended}</div>
             {intendedIsMechanicalOnly ? (
               <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 6, marginBottom: 0 }}>
-                Mechanical pass only — the in-context reading didn't run on this sample, so words
+                Mechanical pass only. The in-context reading didn't run on this sample, so words
                 needing context are still unresolved here.
               </p>
             ) : null}
@@ -1372,7 +1351,7 @@ function TranslateScreen({ single }: {
                     <td style={{ ...S.td, color: r.decision === "abstained" ? C.experimental : C.corrected, fontWeight: 600 }}>
                       {r.decision === "abstained" ? "couldn't confidently interpret" : (r.corrected ?? "left as written")}
                     </td>
-                    <td style={{ ...S.td, ...S.num }}>{r.confidence?.toFixed(2) ?? "—"}</td>
+                    <td style={{ ...S.td, ...S.num }}>{r.confidence?.toFixed(2) ?? "n/a"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1388,8 +1367,8 @@ function TranslateScreen({ single }: {
       <div style={{ ...S.card, borderStyle: "solid" }}>
         <h3 style={{ ...S.h3, marginTop: 0 }}>2. Basic script statistics</h3>
         <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 14 }}>
-          Computed directly from the as-written text — no model involved, nothing to accept or
-          reject. {stats.fromEngine
+          Computed directly from the as-written text, with no model involved and nothing to
+          accept or reject. {stats.fromEngine
             ? "The word count is the engine's own token count, the same figure the Dimensions screen reports."
             : "Counts shown for the worked example are computed here; a scored sample uses the engine's own token count."}
         </p>
@@ -1401,7 +1380,7 @@ function TranslateScreen({ single }: {
           <Tile k="Paragraph count" v={stats.paragraphs} />
         </div>
         <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 12, marginBottom: 0 }}>
-          Raw evidence only — longer isn't better. Sentence length carries the same length-confound
+          Raw evidence only; longer isn't better. Sentence length carries the same length-confound
           risk vocabulary's fitted model hit; don't read it as a quality signal on its own.
         </p>
       </div>
@@ -1409,7 +1388,7 @@ function TranslateScreen({ single }: {
       {/* 3. Communicative message summary */}
       <div style={S.card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <h3 style={{ ...S.h3, marginTop: 0 }}>3. Communicative message — summary</h3>
+          <h3 style={{ ...S.h3, marginTop: 0 }}>3. Communicative message: summary</h3>
           <AiBadge />
         </div>
         {single?.communicative ? (
@@ -1418,7 +1397,7 @@ function TranslateScreen({ single }: {
           </ul>
         ) : hasSample ? (
           <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
-            Not available — {single?.communicative_error ?? "no reading returned"}.
+            Not available. {single?.communicative_error ?? "No reading returned"}.
           </p>
         ) : (
           <>
@@ -1427,13 +1406,13 @@ function TranslateScreen({ single }: {
               <li>Example: mentions the setting and a daily routine of swimming in a river.</li>
             </ul>
             <p style={{ fontSize: 11.5, color: C.ink3, marginBottom: 0 }}>
-              Worked example — run a sample on the Question screen to see this generated for real.
+              Worked example. Run a sample on the Question screen to see this generated for real.
             </p>
           </>
         )}
         {single?.communicative ? (
           <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 8, marginBottom: 0 }}>
-            Not yet marker-correctable from this screen — see the open question on how an override
+            Not yet marker-correctable from this screen. See the open question on how an override
             here should propagate downstream.
           </p>
         ) : null}
@@ -1448,28 +1427,51 @@ function TranslateScreen({ single }: {
           </div>
           {single?.communicative ? (
             <>
-              {/* The band was buried mid-sentence in the descriptor and read as
-                  body text. It is the headline of this panel, so it is set like
-                  one. The descriptor still carries it in prose underneath —
-                  the model is instructed to open with "Consistent with {band}
-                  expectations", and that sentence is the reasoning, not
-                  decoration.
+              {/* The band is the headline of this panel, so it is set like one
+                  rather than buried mid-sentence in the descriptor.
 
-                  NOTE: this is the visibility half of the 20 Aug feedback only.
-                  Whether a single band anchor is the right framing at all — vs
-                  a below/above breakdown answering "why not A2, why not B2" —
-                  is an open question and deliberately NOT answered here. */}
+                  Underneath it, the case against each neighbouring band. A band
+                  on its own is an assertion; these two make it arguable, which
+                  was the point of the "why not A2, why not B2" question. The
+                  reasoning comes from the model, which is asked to name
+                  something actually in this script rather than restate the band
+                  definitions at each other. */}
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "2px 0 6px" }}>
                 <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: C.ink }}>
                   {single.communicative.communicative_level_band}
                 </span>
                 <span style={{ fontSize: 12, color: C.ink3 }}>communicative level</span>
               </div>
-              <p style={{ fontSize: 13, color: C.ink2, marginBottom: 0 }}>{single.communicative.communicative_level_descriptor}</p>
+              <p style={{ fontSize: 13, color: C.ink2, marginBottom: 10 }}>{single.communicative.communicative_level_descriptor}</p>
+              {single.communicative.why_not_below || single.communicative.why_not_above ? (
+                <table style={S.table}>
+                  <tbody>
+                    {([
+                      ["below",
+                       single.communicative.band_below
+                         || bandNeighbour(single.communicative.communicative_level_band, -1),
+                       single.communicative.why_not_below],
+                      ["above",
+                       single.communicative.band_above
+                         || bandNeighbour(single.communicative.communicative_level_band, 1),
+                       single.communicative.why_not_above],
+                    ] as Array<[string, string | null, string | undefined]>)
+                      .filter(([, , why]) => !!why)
+                      .map(([dir, band, why]) => (
+                        <tr key={dir}>
+                          <td style={{ ...S.td, whiteSpace: "nowrap", fontWeight: 600, width: 1 }}>
+                            {band ? `Why not ${band}?` : `Why not one ${dir}?`}
+                          </td>
+                          <td style={{ ...S.td, color: C.ink2 }}>{why}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              ) : null}
             </>
           ) : hasSample ? (
             <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
-              Not available — {single?.communicative_error ?? "no reading returned"}.
+              Not available. {single?.communicative_error ?? "No reading returned"}.
             </p>
           ) : (
             <>
@@ -1490,7 +1492,7 @@ function TranslateScreen({ single }: {
             <p style={{ fontSize: 14, color: C.ink, marginBottom: 0 }}>{single.communicative.effect_on_reader}</p>
           ) : hasSample ? (
             <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
-              Not available — {single?.communicative_error ?? "no reading returned"}.
+              Not available. {single?.communicative_error ?? "No reading returned"}.
             </p>
           ) : (
             <p style={{ fontSize: 14, color: C.ink, marginBottom: 0 }}>
@@ -1500,31 +1502,18 @@ function TranslateScreen({ single }: {
         </div>
       </div>
       <p style={{ fontSize: 12, color: C.ink3, margin: "14px 0" }}>
-        Both read from the as-written text only — never the intended reading above, so the judgment
+        Both read from the as-written text only, never the intended reading above, so the judgment
         can't hide the friction it exists to measure. Supporting evidence for Coherence, not a
         seventh dimension: sign-off depends on testing whether it predicts real markers' Coherence
         judgments, not on how it looks here.
       </p>
 
 
-      {/* 6. Grammar review */}
+      {/* 6. Other reviews */}
       <div style={S.card}>
-        <h3 style={{ ...S.h3, marginTop: 0 }}>6. Grammar review</h3>
+        <h3 style={{ ...S.h3, marginTop: 0 }}>6. Other reviews</h3>
         <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
-          Not built yet, anywhere. This is the real shape of the missing grammar detector — an
-          intent-inference step structurally parallel to the vocabulary review above, not a
-          standalone classifier. Once it exists, malformed-structure guesses will show here the
-          same way vocabulary's do — individually accept, reject, or override. The override
-          mechanism those rows will use is the one built for section 6 above, so this section is
-          waiting on the detector, not on the wiring.
-        </p>
-      </div>
-
-      {/* 7. Other reviews */}
-      <div style={S.card}>
-        <h3 style={{ ...S.h3, marginTop: 0 }}>7. Other reviews</h3>
-        <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
-          Placeholder — not yet defined.
+          Placeholder. Not yet defined.
         </p>
       </div>
     </div>
@@ -1560,25 +1549,29 @@ function VocabularyProfileTab({
 
   // Band per word, from the engine's own records rather than a second lookup.
   // `written` carries the as-written forms; `full` the intent reading's stream.
-  const bandOfWritten = useMemo(() => {
-    const m = new Map<string, string | null>();
-    for (const w of d.views.written) m.set(w.word.toLowerCase(), w.band);
+  const infoOfWritten = useMemo(() => {
+    const m = new Map<string, Word>();
+    for (const w of d.views.written) m.set(w.word.toLowerCase(), w);
     return (w: string) => m.get(w) ?? null;
   }, [d.views.written]);
 
-  const bandOfIntended = useMemo(() => {
-    const m = new Map<string, string | null>();
-    for (const w of [...d.views.full, ...d.views.distinct]) m.set(w.word.toLowerCase(), w.band);
+  const infoOfIntended = useMemo(() => {
+    const m = new Map<string, Word>();
+    for (const w of [...d.views.full, ...d.views.distinct]) m.set(w.word.toLowerCase(), w);
     return (w: string) => m.get(w) ?? null;
   }, [d.views.full, d.views.distinct]);
 
   // The forms that ARE a correction, i.e. what a misspelling was read as. Marked
   // on the intended text only — the as-written script has no corrections in it
   // by definition.
-  const correctedForms = useMemo(() => {
-    const out = new Set<string>();
-    for (const c of d.spelling_changes ?? []) if (c.read_as) out.add(c.read_as.toLowerCase());
-    for (const r of d.audit ?? []) if (r.corrected) out.add(r.corrected.toLowerCase());
+  const correctedFrom = useMemo(() => {
+    const out = new Map<string, string>();
+    for (const c of d.spelling_changes ?? []) {
+      if (c.read_as) out.set(c.read_as.toLowerCase(), c.written);
+    }
+    for (const r of d.audit ?? []) {
+      if (r.corrected) out.set(r.corrected.toLowerCase(), r.original);
+    }
     return out;
   }, [d.spelling_changes, d.audit]);
 
@@ -1603,13 +1596,18 @@ function VocabularyProfileTab({
       >
         {/* 1. The two scripts. */}
         <h2 style={{ ...S.h2, marginTop: 6 }}>The two scripts</h2>
+        <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 10 }}>
+          Every word is classified by its GSE level. The fill groups those levels into six bands so
+          the script stays readable; hover a word for its exact GSE number, its level, and the
+          dictionary sense the engine matched.
+        </p>
         <CefrLegend />
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
           <ScriptView title="As written" text={d.text}
-                      bandOf={bandOfWritten} correctedForms={new Set()} />
+                      infoOf={infoOfWritten} correctedFrom={new Map()} />
           <ScriptView title="Intended reading" text={intendedText}
-                      bandOf={bandOfIntended} correctedForms={correctedForms}
-                      note="Red outline marks a word the spelling pass read differently from what was written." />
+                      infoOf={infoOfIntended} correctedFrom={correctedFrom}
+                      note="Hover any word for its GSE number and level. A red outline marks a word the spelling pass read differently from what was written." />
         </div>
 
         {/* 2. Confident lexical level, then the arithmetic behind it. */}

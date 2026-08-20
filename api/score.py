@@ -80,10 +80,24 @@ COMMUNICATIVE_SCHEMA = {
             "enum": ["Pre-A1", "A1", "A1+", "A2", "A2+", "B1", "B1+", "B2", "B2+", "C1", "C2"],
         },
         "communicative_level_descriptor": {"type": "string"},
+        # The band on its own is an assertion. These two make it arguable: what
+        # the writing does that the band below does not, and what it fails to do
+        # that the band above would. A marker who disagrees can now see the
+        # reasoning rather than only the verdict.
+        "why_not_below": {"type": "string"},
+        "why_not_above": {"type": "string"},
+        # The model names the bands it is arguing against, rather than the UI
+        # computing them and hoping the two agree. They did not agree: given the
+        # six-level grid, a B1 verdict argued against B2 while the screen
+        # captioned it "why not B1+".
+        "band_below": {"type": "string"},
+        "band_above": {"type": "string"},
         "effect_on_reader": {"type": "string"},
     },
     "required": ["summary_bullets", "communicative_level_band",
-                 "communicative_level_descriptor", "effect_on_reader"],
+                 "communicative_level_descriptor",
+                 "why_not_below", "why_not_above",
+                 "band_below", "band_above", "effect_on_reader"],
     "additionalProperties": False,
 }
 
@@ -104,7 +118,7 @@ spelling and grammar mistakes included. Do not correct it and do not imagine a
 corrected version — judge the raw, as-written text only, the same way a reader
 who only ever sees the original would experience it.
 
-Produce three things:
+Produce four things:
 
 1. summary_bullets: 2-5 short bullet points describing what the student was
    trying to communicate — the content and meaning, not the vocabulary or
@@ -120,7 +134,42 @@ Produce three things:
 CEFR Writing scale (Self-Assessment Grid):
 """ + _CEFR_WRITING_GRID + """
 
-3. effect_on_reader: one plain-language sentence, for someone who does not
+THE BAND SCALE YOU MUST USE has eleven steps, finer than the six-level grid
+above:
+
+    Pre-A1  A1  A1+  A2  A2+  B1  B1+  B2  B2+  C1  C2
+
+The grid above describes A1, A2, B1, B2, C1 and C2. The plus bands sit
+immediately above their base band: A1+ is between A1 and A2, B1+ between B1 and
+B2, and so on. "Immediately above" and "immediately below" always mean one step
+on THIS eleven-step scale, never one level on the six-level grid.
+
+3. why_not_below + why_not_above: the case against the two neighbouring bands,
+   one short sentence each, written for a marker who wants to check the
+   judgment rather than take it.
+
+   why_not_below: what this writing does that the band immediately BELOW your
+   chosen band would not do. Name the specific thing in this script that rules
+   the lower band out.
+
+   why_not_above: what this writing does not do, that the band immediately
+   ABOVE yours would require. Again, name the specific shortfall in this script.
+
+   Both must point at something actually in the text. Do not restate the band
+   definitions at each other, and do not hedge: if you cannot name a concrete
+   reason, your chosen band is probably wrong, so change it.
+
+   band_below and band_above: the two bands you are arguing against, named
+   exactly as they appear on the eleven-step scale. If your chosen band is B1
+   these are "A2+" and "B1+", not "A2" and "B2". Your reasoning must be about
+   the bands you name here and no others.
+
+   If your chosen band is Pre-A1 there is no band below: set band_below to ""
+   and write "Pre-A1 is the lowest band on the scale." If it is C2 there is no
+   band above: set band_above to "" and write "C2 is the highest band on the
+   scale."
+
+4. effect_on_reader: one plain-language sentence, for someone who does not
    know CEFR (a class teacher, a parent) — for example "readable with
    occasional re-reading needed". Never reference a CEFR band here.
 
@@ -132,7 +181,7 @@ given below, nothing else.
 
 
 def communicative_effect(text, cfg, deadline_at):
-    """One call producing all three Communicative Effect / Translation reads."""
+    """One call producing every Communicative Effect / Translation read."""
     return intent_client.call(_COMMUNICATIVE_SYSTEM, text, COMMUNICATIVE_SCHEMA, cfg, deadline_at)
 
 
