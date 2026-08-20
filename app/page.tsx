@@ -584,8 +584,8 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
         <div style={{ ...S.note, borderLeftColor: C.flag, color: C.flag }}>
           Still awaiting review: {d.coverage_detail.unresolved.join(", ")}. Separate from the
           coverage figure — that counts individual words, this counts questions still open, so
-          both can be true at once. Resolve these in the Vocabulary review on the Translate
-          screen.
+          both can be true at once. Resolve these in the Vocabulary review further down this
+          tab.
         </div>
       ) : null}
 
@@ -685,7 +685,7 @@ function DetailView({ d, onBack }: { d: Detail; onBack?: () => void }) {
       ) : null}
 
       {/* The proposals themselves — accepted and rejected alike — are reviewed
-          on the Translate screen, which is also where a marker overrides them.
+          in the Vocabulary review below, which is also where a marker overrides them.
           Only the provenance note stays here, because it says which reading the
           score below was computed from. */}
       {d.intent_note ? (
@@ -777,295 +777,50 @@ function AiBadge() {
   );
 }
 
-function TranslateScreen({
+/* ------------------------------------------- vocabulary review + base forms */
+// Both blocks below were lifted verbatim off the Translate screen (20 Aug
+// feedback, item 3). Translate is interpretation-and-communication only now;
+// anything vocabulary-specific belongs with the vocabulary evidence.
+//
+// THE OVERRIDE MECHANISM MOVED HOUSE, IT WAS NOT REBUILT. The same props drive
+// it — `overrides` / `setOverrides` populate the map, `onRescore` posts
+// `mode: "override"`, `firstPass` supplies the baseline the API round-trips.
+// Only the component wrapping them changed, so the re-score path and its
+// propagation into the intended reading and the scores are the same code.
+
+function VocabularyReview({
   single, firstPass, overrides, setOverrides, onRescore, rescoring, rescoreError, dirty,
 }: {
-  single: Detail | null;              // the freshest reading — override-adjusted if one exists
-  firstPass: Detail | null;           // always the original pass, the baseline overrides sit on
+  single: Detail | null;
+  firstPass: Detail | null;
   overrides: Overrides;
   setOverrides: (fn: (prev: Overrides) => Overrides) => void;
   onRescore: () => void;
   rescoring: boolean;
   rescoreError: string | null;
-  dirty: boolean;                     // corrections changed since the last re-score
+  dirty: boolean;
 }) {
   const hasSample = !!single;
-
-  // A worked example so the layout is checkable before any sample has been
-  // scored — the same example used in docs/05's own grammar walkthrough.
-  const exampleWritten = "She go school every day. My favrite subjcet is math.";
-  const exampleIntended = "She goes to school every day. My favourite subject is math.";
-
-  const written = single?.text ?? exampleWritten;
-  // The intended reading is the version that comes OUT of the whole
-  // interpretation step, not the mechanical pass alone. `corrected_sample`
-  // carries the accepted vocabulary proposals (and, once a marker has
-  // re-scored, their overrides); `corrected_text` is the mechanical fallback
-  // for a sample the intent reading never ran on. Showing corrected_text alone
-  // meant accepting "bote" -> "boat" in section 6 changed nothing here.
-  const intended = single
-    ? (single.corrected_sample ?? single.corrected_text)
-    : exampleIntended;
-  const intendedIsMechanicalOnly = !!single && !single.corrected_sample;
   const vocabProposals = firstPass?.intent_audit ?? single?.intent_audit ?? [];
-  const audit = single?.audit ?? [];
   const collisions = single?.collisions ?? [];
   const overrideCount = Object.keys(overrides).length;
-  // A "different word" with no word in it is not an answer yet. Blocking the
-  // re-score here is kinder than letting the form test reject an empty string
-  // on the far side of a round trip.
   const blankReplacement = Object.values(overrides).some(
     (o) => o.answer === "replacement" && !(o.proposed ?? "").trim());
-  // What actually became of a marker's answer, once it has been through the
-  // acceptance checks. Null until they re-score, and null for tokens they left
-  // to the model.
+  const canRescore = !!firstPass?.intent_audit?.length
+    && overrideCount > 0 && !blankReplacement && !rescoring && dirty;
   const appliedFor = (token: string) =>
     (single?.interpretation_source === "marker" && single.overrides_applied?.includes(token)
       ? (single.intent_audit ?? []).find((x) => x.original === token)
       : undefined) ?? null;
-  const canRescore = !!firstPass?.intent_audit?.length
-    && overrideCount > 0 && !blankReplacement && !rescoring && dirty;
-  const meta = single?.meta ?? {};
-
-  // Pure quant, computed from the raw as-written text — no model involved,
-  // so this carries none of the AI disclaimers everything else on the
-  // screen needs.
-  //
-  // ONE SOURCE OF TRUTH FOR THE WORD COUNT. This used to split on whitespace
-  // here, which gave a second, independently-derived count sitting next to the
-  // engine's own on the Dimensions screen. They agreed on the samples tried,
-  // but nothing made them agree — the engine's tokenizer and a `\s+` split
-  // disagree on hyphenation, apostrophes and stray punctuation. `result.words`
-  // is `totals.original.tokens` straight from `analyse()`, the same number
-  // `DetailView` renders, so both screens now quote one figure. The whitespace
-  // split survives only as the fallback for the worked example, where no
-  // sample has been analysed and there is no engine count to read.
-  const stats = useMemo(() => {
-    const trimmed = written.trim();
-    const splitWords = trimmed ? trimmed.split(/\s+/).length : 0;
-    const words = single?.words ?? splitWords;
-    const sentenceMatches = trimmed.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
-    const sentences = trimmed ? (sentenceMatches?.length ?? 1) : 0;
-    const paragraphs = trimmed ? (trimmed.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).length || 1) : 0;
-    // Derived from the same `words` above, so the tile and this ratio can
-    // never quote different totals.
-    const avgSentenceLen = sentences ? Math.round((words / sentences) * 10) / 10 : 0;
-    return { words, sentences, paragraphs, avgSentenceLen, fromEngine: single?.words != null };
-  }, [written, single?.words]);
 
   return (
     <div>
-      <h1 style={S.h1}>Communicative Effect &amp; Translation</h1>
-      <p style={S.sub}>
-        Before any dimension is scored, this is where the model's reading of what the student
-        meant gets surfaced and checked. This screen interprets — it does not score.
-      </p>
-
-      {!hasSample ? (
-        <div style={{ ...S.note, marginBottom: 14 }}>
-          No sample has been scored yet, so the panels below show a worked example, not real
-          output. Run a sample on the <b>Question</b> screen to see this screen populated with it.
-        </div>
-      ) : null}
-
-      {/* 1. As written / intended reading */}
+      {/* Was section 6 of Translate. */}
       <div style={S.card}>
-        <h3 style={{ ...S.h3, marginTop: 0 }}>1. As written / intended reading</h3>
-        <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 14 }}>
-          The intended reading is AI-generated — a hypothesis about intent, not a fact about the text.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginBottom: 14 }}>
-          <div>
-            <label style={S.label}>As written</label>
-            <div style={{ ...S.field, minHeight: 90, background: C.surface2, whiteSpace: "pre-wrap" }}>{written}</div>
-          </div>
-          <div>
-            <label style={S.label}>Intended reading</label>
-            <div style={{ ...S.field, minHeight: 90, background: "#fff", color: C.corrected, whiteSpace: "pre-wrap" }}>{intended}</div>
-            {intendedIsMechanicalOnly ? (
-              <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 6, marginBottom: 0 }}>
-                Mechanical pass only — the in-context reading didn't run on this sample, so words
-                needing context are still unresolved here.
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        {audit.length ? (
-          <>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8, fontSize: 12, color: C.ink2 }}>
-              <span><i style={{ width: 10, height: 10, borderRadius: 3, background: C.corrected, display: "inline-block", marginRight: 5 }} /> vocabulary correction</span>
-              <span><i style={{ width: 10, height: 10, borderRadius: 3, background: C.grammar, display: "inline-block", marginRight: 5 }} /> grammar correction (not built yet)</span>
-              <span><i style={{ width: 10, height: 10, borderRadius: 3, background: C.experimental, display: "inline-block", marginRight: 5 }} /> couldn't confidently interpret</span>
-            </div>
-            <table style={S.table}>
-              <thead><tr><th style={S.th}>Written</th><th style={S.th}>Read as</th><th style={{ ...S.th, ...S.num }}>Confidence</th></tr></thead>
-              <tbody>
-                {audit.map((r, i) => (
-                  <tr key={i} style={{ ...(i % 2 ? { background: C.surface2 } : {}), ...(r.decision === "abstained" ? { background: "#faf1e2" } : {}) }}>
-                    <td style={{ ...S.td, textDecoration: "line-through", color: C.ink3 }}>{r.original}</td>
-                    <td style={{ ...S.td, color: r.decision === "abstained" ? C.experimental : C.corrected, fontWeight: 600 }}>
-                      {r.decision === "abstained" ? "couldn't confidently interpret" : (r.corrected ?? "left as written")}
-                    </td>
-                    <td style={{ ...S.td, ...S.num }}>{r.confidence?.toFixed(2) ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        ) : hasSample ? (
-          <p style={{ fontSize: 13, color: C.ink3 }}>Nothing in this script needed a spelling judgment call.</p>
-        ) : null}
-
-        {/* HOMOGRAPH READINGS RESOLVED DOWNWARD. Interpretation, not scoring —
-            a real word the engine chose to read at its base sense — so it
-            belongs with the intended reading above, not on Dimensions where it
-            used to sit. Not marker-overridable through the vocabulary review
-            below: this is a deterministic engine decision, not a model
-            proposal, and the two must not look alike. */}
-        {collisions.length ? (
-          <div style={{ marginTop: 18 }}>
-            <label style={S.label}>Words read down to their base form</label>
-            <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 10 }}>
-              These words appear in the reference list only in an advanced sense — “the going was
-              tough”, a <i>saw</i> as a tool — so taken at face value they would credit a level the
-              student almost certainly did not produce. The engine reads them at their base form
-              instead. It only ever resolves <b>downward</b>; if you disagree with a reading here,
-              the level is understating that word, never overstating it.
-            </p>
-            <table style={S.table}>
-              <thead>
-                <tr>
-                  <th style={S.th}>Word</th>
-                  <th style={S.th}>Taken at face value</th>
-                  <th style={S.th}>Read as</th>
-                  <th style={{ ...S.th, ...S.num }}>GSE dropped</th>
-                </tr>
-              </thead>
-              <tbody>
-                {collisions.map(([word, fromGse, fromBand, toGse, toBand], i) => (
-                  <tr key={i} style={i % 2 ? { background: C.surface2 } : undefined}>
-                    <td style={{ ...S.td, ...S.mono }}>{word}</td>
-                    <td style={{ ...S.td, color: C.corrected }}>{fromBand} ({fromGse})</td>
-                    <td style={S.td}>{toBand ?? "—"} ({toGse ?? "—"})</td>
-                    <td style={{ ...S.td, ...S.num }}>{fromGse - (toGse ?? 0)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </div>
-
-      {/* 2. Basic script statistics — fact, not judgment. No AI disclaimer. */}
-      <div style={{ ...S.card, borderStyle: "solid" }}>
-        <h3 style={{ ...S.h3, marginTop: 0 }}>2. Basic script statistics</h3>
-        <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 14 }}>
-          Computed directly from the as-written text — no model involved, nothing to accept or
-          reject. {stats.fromEngine
-            ? "The word count is the engine's own token count, the same figure the Dimensions screen reports."
-            : "Counts shown for the worked example are computed here; a scored sample uses the engine's own token count."}
-        </p>
-        <div style={S.grid}>
-          <Tile k="Word count" v={stats.words}
-                n={meta.word_count_min && meta.word_count_max ? `target ${meta.word_count_min}–${meta.word_count_max}` : undefined} />
-          <Tile k="Sentence count" v={stats.sentences} />
-          <Tile k="Avg. sentence length" v={stats.avgSentenceLen} n="words per sentence" />
-          <Tile k="Paragraph count" v={stats.paragraphs} />
-        </div>
-        <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 12, marginBottom: 0 }}>
-          Raw evidence only — longer isn't better. Sentence length carries the same length-confound
-          risk vocabulary's fitted model hit; don't read it as a quality signal on its own.
-        </p>
-      </div>
-
-      {/* 3. Communicative message summary */}
-      <div style={S.card}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <h3 style={{ ...S.h3, marginTop: 0 }}>3. Communicative message — summary</h3>
-          <AiBadge />
-        </div>
-        {single?.communicative ? (
-          <ul style={{ fontSize: 14, color: C.ink2, lineHeight: 1.7, paddingLeft: 20, marginTop: 4, marginBottom: 8 }}>
-            {single.communicative.summary_bullets.map((b, i) => <li key={i}>{b}</li>)}
-          </ul>
-        ) : hasSample ? (
-          <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
-            Not available — {single?.communicative_error ?? "no reading returned"}.
-          </p>
-        ) : (
-          <>
-            <ul style={{ fontSize: 14, color: C.ink2, lineHeight: 1.7, paddingLeft: 20, marginTop: 4, marginBottom: 8 }}>
-              <li>Example: describes a family visit to a relative's house in a village.</li>
-              <li>Example: mentions the setting and a daily routine of swimming in a river.</li>
-            </ul>
-            <p style={{ fontSize: 11.5, color: C.ink3, marginBottom: 0 }}>
-              Worked example — run a sample on the Question screen to see this generated for real.
-            </p>
-          </>
-        )}
-        {single?.communicative ? (
-          <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 8, marginBottom: 0 }}>
-            Not yet marker-correctable from this screen — see the open question on how an override
-            here should propagate downstream.
-          </p>
-        ) : null}
-      </div>
-
-      {/* 4 & 5. Communicative level / effect on reader */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
-        <div style={S.card}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <h3 style={{ ...S.h3, marginTop: 0 }}>4. Communicative level</h3>
-            <AiBadge />
-          </div>
-          {single?.communicative ? (
-            <p style={{ fontSize: 13, color: C.ink2, marginBottom: 0 }}>{single.communicative.communicative_level_descriptor}</p>
-          ) : hasSample ? (
-            <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
-              Not available — {single?.communicative_error ?? "no reading returned"}.
-            </p>
-          ) : (
-            <>
-              <p style={{ fontSize: 14, color: C.ink, marginBottom: 6 }}><b>Example: consistent with B1 expectations.</b></p>
-              <p style={{ fontSize: 13, color: C.ink2, marginBottom: 0 }}>
-                The main message is clear and connected. Errors occasionally interrupt the flow but
-                generally do not prevent understanding.
-              </p>
-            </>
-          )}
-        </div>
-        <div style={S.card}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <h3 style={{ ...S.h3, marginTop: 0 }}>5. Effect on reader</h3>
-            <AiBadge />
-          </div>
-          {single?.communicative ? (
-            <p style={{ fontSize: 14, color: C.ink, marginBottom: 0 }}>{single.communicative.effect_on_reader}</p>
-          ) : hasSample ? (
-            <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
-              Not available — {single?.communicative_error ?? "no reading returned"}.
-            </p>
-          ) : (
-            <p style={{ fontSize: 14, color: C.ink, marginBottom: 0 }}>
-              Example: readable with occasional re-reading needed.
-            </p>
-          )}
-        </div>
-      </div>
-      <p style={{ fontSize: 12, color: C.ink3, margin: "14px 0" }}>
-        Both read from the as-written text only — never the intended reading above, so the judgment
-        can't hide the friction it exists to measure. Supporting evidence for Coherence, not a
-        seventh dimension: sign-off depends on testing whether it predicts real markers' Coherence
-        judgments, not on how it looks here.
-      </p>
-
-      {/* 6. Vocabulary review */}
-      <div style={S.card}>
-        <h3 style={{ ...S.h3, marginTop: 0 }}>6. Vocabulary review</h3>
+        <h3 style={{ ...S.h3, marginTop: 0 }}>Vocabulary review</h3>
         <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 12 }}>
           AI-generated proposals for words the deterministic corrector couldn't resolve on its own —
-          a review of hypotheses, not a score. The scored evidence lives on the Dimensions screen.
+          a review of hypotheses, not a score. The scored evidence is in the profile above.
         </p>
         {vocabProposals.length ? (
           <>
@@ -1210,9 +965,290 @@ function TranslateScreen({
         )}
       </div>
 
-      {/* 7. Grammar review */}
+      {/* HOMOGRAPH READINGS RESOLVED DOWNWARD. Interpretation, not scoring —
+          a real word the engine chose to read at its base sense — so it
+          belongs with the intended reading above, not on Dimensions where it
+          used to sit. Not marker-overridable through the vocabulary review
+          below: this is a deterministic engine decision, not a model
+          proposal, and the two must not look alike. */}
+      {collisions.length ? (
+        <div style={{ marginTop: 18 }}>
+          <label style={S.label}>Words read down to their base form</label>
+          <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 10 }}>
+            These words appear in the reference list only in an advanced sense — “the going was
+            tough”, a <i>saw</i> as a tool — so taken at face value they would credit a level the
+            student almost certainly did not produce. The engine reads them at their base form
+            instead. It only ever resolves <b>downward</b>; if you disagree with a reading here,
+            the level is understating that word, never overstating it.
+          </p>
+          <table style={S.table}>
+            <thead>
+              <tr>
+                <th style={S.th}>Word</th>
+                <th style={S.th}>Taken at face value</th>
+                <th style={S.th}>Read as</th>
+                <th style={{ ...S.th, ...S.num }}>GSE dropped</th>
+              </tr>
+            </thead>
+            <tbody>
+              {collisions.map(([word, fromGse, fromBand, toGse, toBand], i) => (
+                <tr key={i} style={i % 2 ? { background: C.surface2 } : undefined}>
+                  <td style={{ ...S.td, ...S.mono }}>{word}</td>
+                  <td style={{ ...S.td, color: C.corrected }}>{fromBand} ({fromGse})</td>
+                  <td style={S.td}>{toBand ?? "—"} ({toGse ?? "—"})</td>
+                  <td style={{ ...S.td, ...S.num }}>{fromGse - (toGse ?? 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TranslateScreen({ single }: {
+  single: Detail | null;              // the freshest reading — override-adjusted if one exists
+}) {
+  const hasSample = !!single;
+
+  // A worked example so the layout is checkable before any sample has been
+  // scored — the same example used in docs/05's own grammar walkthrough.
+  const exampleWritten = "She go school every day. My favrite subjcet is math.";
+  const exampleIntended = "She goes to school every day. My favourite subject is math.";
+
+  const written = single?.text ?? exampleWritten;
+  // The intended reading is the version that comes OUT of the whole
+  // interpretation step, not the mechanical pass alone. `corrected_sample`
+  // carries the accepted vocabulary proposals (and, once a marker has
+  // re-scored, their overrides); `corrected_text` is the mechanical fallback
+  // for a sample the intent reading never ran on. Showing corrected_text alone
+  // meant accepting "bote" -> "boat" in section 6 changed nothing here.
+  const intended = single
+    ? (single.corrected_sample ?? single.corrected_text)
+    : exampleIntended;
+  const intendedIsMechanicalOnly = !!single && !single.corrected_sample;
+  const audit = single?.audit ?? [];
+  const meta = single?.meta ?? {};
+
+  // Pure quant, computed from the raw as-written text — no model involved,
+  // so this carries none of the AI disclaimers everything else on the
+  // screen needs.
+  //
+  // ONE SOURCE OF TRUTH FOR THE WORD COUNT. This used to split on whitespace
+  // here, which gave a second, independently-derived count sitting next to the
+  // engine's own on the Dimensions screen. They agreed on the samples tried,
+  // but nothing made them agree — the engine's tokenizer and a `\s+` split
+  // disagree on hyphenation, apostrophes and stray punctuation. `result.words`
+  // is `totals.original.tokens` straight from `analyse()`, the same number
+  // `DetailView` renders, so both screens now quote one figure. The whitespace
+  // split survives only as the fallback for the worked example, where no
+  // sample has been analysed and there is no engine count to read.
+  const stats = useMemo(() => {
+    const trimmed = written.trim();
+    const splitWords = trimmed ? trimmed.split(/\s+/).length : 0;
+    const words = single?.words ?? splitWords;
+    const sentenceMatches = trimmed.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
+    const sentences = trimmed ? (sentenceMatches?.length ?? 1) : 0;
+    const paragraphs = trimmed ? (trimmed.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).length || 1) : 0;
+    // Derived from the same `words` above, so the tile and this ratio can
+    // never quote different totals.
+    const avgSentenceLen = sentences ? Math.round((words / sentences) * 10) / 10 : 0;
+    return { words, sentences, paragraphs, avgSentenceLen, fromEngine: single?.words != null };
+  }, [written, single?.words]);
+
+  return (
+    <div>
+      <h1 style={S.h1}>Communicative Effect &amp; Translation</h1>
+      <p style={S.sub}>
+        Before any dimension is scored, this is where the model's reading of what the student
+        meant gets surfaced and checked. This screen interprets — it does not score.
+      </p>
+
+      {!hasSample ? (
+        <div style={{ ...S.note, marginBottom: 14 }}>
+          No sample has been scored yet, so the panels below show a worked example, not real
+          output. Run a sample on the <b>Question</b> screen to see this screen populated with it.
+        </div>
+      ) : null}
+
+      {/* 1. As written / intended reading */}
       <div style={S.card}>
-        <h3 style={{ ...S.h3, marginTop: 0 }}>7. Grammar review</h3>
+        <h3 style={{ ...S.h3, marginTop: 0 }}>1. As written / intended reading</h3>
+        <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 14 }}>
+          The intended reading is AI-generated — a hypothesis about intent, not a fact about the text.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14, marginBottom: 14 }}>
+          <div>
+            <label style={S.label}>As written</label>
+            <div style={{ ...S.field, minHeight: 90, background: C.surface2, whiteSpace: "pre-wrap" }}>{written}</div>
+          </div>
+          <div>
+            <label style={S.label}>Intended reading</label>
+            <div style={{ ...S.field, minHeight: 90, background: "#fff", color: C.corrected, whiteSpace: "pre-wrap" }}>{intended}</div>
+            {intendedIsMechanicalOnly ? (
+              <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 6, marginBottom: 0 }}>
+                Mechanical pass only — the in-context reading didn't run on this sample, so words
+                needing context are still unresolved here.
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        {audit.length ? (
+          <>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8, fontSize: 12, color: C.ink2 }}>
+              <span><i style={{ width: 10, height: 10, borderRadius: 3, background: C.corrected, display: "inline-block", marginRight: 5 }} /> vocabulary correction</span>
+              <span><i style={{ width: 10, height: 10, borderRadius: 3, background: C.grammar, display: "inline-block", marginRight: 5 }} /> grammar correction (not built yet)</span>
+              <span><i style={{ width: 10, height: 10, borderRadius: 3, background: C.experimental, display: "inline-block", marginRight: 5 }} /> couldn't confidently interpret</span>
+            </div>
+            <table style={S.table}>
+              <thead><tr><th style={S.th}>Written</th><th style={S.th}>Read as</th><th style={{ ...S.th, ...S.num }}>Confidence</th></tr></thead>
+              <tbody>
+                {audit.map((r, i) => (
+                  <tr key={i} style={{ ...(i % 2 ? { background: C.surface2 } : {}), ...(r.decision === "abstained" ? { background: "#faf1e2" } : {}) }}>
+                    <td style={{ ...S.td, textDecoration: "line-through", color: C.ink3 }}>{r.original}</td>
+                    <td style={{ ...S.td, color: r.decision === "abstained" ? C.experimental : C.corrected, fontWeight: 600 }}>
+                      {r.decision === "abstained" ? "couldn't confidently interpret" : (r.corrected ?? "left as written")}
+                    </td>
+                    <td style={{ ...S.td, ...S.num }}>{r.confidence?.toFixed(2) ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : hasSample ? (
+          <p style={{ fontSize: 13, color: C.ink3 }}>Nothing in this script needed a spelling judgment call.</p>
+        ) : null}
+
+      </div>
+
+      {/* 2. Basic script statistics — fact, not judgment. No AI disclaimer. */}
+      <div style={{ ...S.card, borderStyle: "solid" }}>
+        <h3 style={{ ...S.h3, marginTop: 0 }}>2. Basic script statistics</h3>
+        <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 14 }}>
+          Computed directly from the as-written text — no model involved, nothing to accept or
+          reject. {stats.fromEngine
+            ? "The word count is the engine's own token count, the same figure the Dimensions screen reports."
+            : "Counts shown for the worked example are computed here; a scored sample uses the engine's own token count."}
+        </p>
+        <div style={S.grid}>
+          <Tile k="Word count" v={stats.words}
+                n={meta.word_count_min && meta.word_count_max ? `target ${meta.word_count_min}–${meta.word_count_max}` : undefined} />
+          <Tile k="Sentence count" v={stats.sentences} />
+          <Tile k="Avg. sentence length" v={stats.avgSentenceLen} n="words per sentence" />
+          <Tile k="Paragraph count" v={stats.paragraphs} />
+        </div>
+        <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 12, marginBottom: 0 }}>
+          Raw evidence only — longer isn't better. Sentence length carries the same length-confound
+          risk vocabulary's fitted model hit; don't read it as a quality signal on its own.
+        </p>
+      </div>
+
+      {/* 3. Communicative message summary */}
+      <div style={S.card}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <h3 style={{ ...S.h3, marginTop: 0 }}>3. Communicative message — summary</h3>
+          <AiBadge />
+        </div>
+        {single?.communicative ? (
+          <ul style={{ fontSize: 14, color: C.ink2, lineHeight: 1.7, paddingLeft: 20, marginTop: 4, marginBottom: 8 }}>
+            {single.communicative.summary_bullets.map((b, i) => <li key={i}>{b}</li>)}
+          </ul>
+        ) : hasSample ? (
+          <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
+            Not available — {single?.communicative_error ?? "no reading returned"}.
+          </p>
+        ) : (
+          <>
+            <ul style={{ fontSize: 14, color: C.ink2, lineHeight: 1.7, paddingLeft: 20, marginTop: 4, marginBottom: 8 }}>
+              <li>Example: describes a family visit to a relative's house in a village.</li>
+              <li>Example: mentions the setting and a daily routine of swimming in a river.</li>
+            </ul>
+            <p style={{ fontSize: 11.5, color: C.ink3, marginBottom: 0 }}>
+              Worked example — run a sample on the Question screen to see this generated for real.
+            </p>
+          </>
+        )}
+        {single?.communicative ? (
+          <p style={{ fontSize: 11.5, color: C.ink3, marginTop: 8, marginBottom: 0 }}>
+            Not yet marker-correctable from this screen — see the open question on how an override
+            here should propagate downstream.
+          </p>
+        ) : null}
+      </div>
+
+      {/* 4 & 5. Communicative level / effect on reader */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+        <div style={S.card}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <h3 style={{ ...S.h3, marginTop: 0 }}>4. Communicative level</h3>
+            <AiBadge />
+          </div>
+          {single?.communicative ? (
+            <>
+              {/* The band was buried mid-sentence in the descriptor and read as
+                  body text. It is the headline of this panel, so it is set like
+                  one. The descriptor still carries it in prose underneath —
+                  the model is instructed to open with "Consistent with {band}
+                  expectations", and that sentence is the reasoning, not
+                  decoration.
+
+                  NOTE: this is the visibility half of the 20 Aug feedback only.
+                  Whether a single band anchor is the right framing at all — vs
+                  a below/above breakdown answering "why not A2, why not B2" —
+                  is an open question and deliberately NOT answered here. */}
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "2px 0 6px" }}>
+                <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: C.ink }}>
+                  {single.communicative.communicative_level_band}
+                </span>
+                <span style={{ fontSize: 12, color: C.ink3 }}>communicative level</span>
+              </div>
+              <p style={{ fontSize: 13, color: C.ink2, marginBottom: 0 }}>{single.communicative.communicative_level_descriptor}</p>
+            </>
+          ) : hasSample ? (
+            <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
+              Not available — {single?.communicative_error ?? "no reading returned"}.
+            </p>
+          ) : (
+            <>
+              <p style={{ fontSize: 14, color: C.ink, marginBottom: 6 }}><b>Example: consistent with B1 expectations.</b></p>
+              <p style={{ fontSize: 13, color: C.ink2, marginBottom: 0 }}>
+                The main message is clear and connected. Errors occasionally interrupt the flow but
+                generally do not prevent understanding.
+              </p>
+            </>
+          )}
+        </div>
+        <div style={S.card}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <h3 style={{ ...S.h3, marginTop: 0 }}>5. Effect on reader</h3>
+            <AiBadge />
+          </div>
+          {single?.communicative ? (
+            <p style={{ fontSize: 14, color: C.ink, marginBottom: 0 }}>{single.communicative.effect_on_reader}</p>
+          ) : hasSample ? (
+            <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
+              Not available — {single?.communicative_error ?? "no reading returned"}.
+            </p>
+          ) : (
+            <p style={{ fontSize: 14, color: C.ink, marginBottom: 0 }}>
+              Example: readable with occasional re-reading needed.
+            </p>
+          )}
+        </div>
+      </div>
+      <p style={{ fontSize: 12, color: C.ink3, margin: "14px 0" }}>
+        Both read from the as-written text only — never the intended reading above, so the judgment
+        can't hide the friction it exists to measure. Supporting evidence for Coherence, not a
+        seventh dimension: sign-off depends on testing whether it predicts real markers' Coherence
+        judgments, not on how it looks here.
+      </p>
+
+
+      {/* 6. Grammar review */}
+      <div style={S.card}>
+        <h3 style={{ ...S.h3, marginTop: 0 }}>6. Grammar review</h3>
         <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
           Not built yet, anywhere. This is the real shape of the missing grammar detector — an
           intent-inference step structurally parallel to the vocabulary review above, not a
@@ -1223,9 +1259,9 @@ function TranslateScreen({
         </p>
       </div>
 
-      {/* 8. Other reviews */}
+      {/* 7. Other reviews */}
       <div style={S.card}>
-        <h3 style={{ ...S.h3, marginTop: 0 }}>8. Other reviews</h3>
+        <h3 style={{ ...S.h3, marginTop: 0 }}>7. Other reviews</h3>
         <p style={{ fontSize: 13, color: C.ink3, marginBottom: 0 }}>
           Placeholder — not yet defined.
         </p>
@@ -1234,7 +1270,21 @@ function TranslateScreen({
   );
 }
 
-function EvidenceCollectionScreen({ single, hasOverrides }: { single: Detail | null; hasOverrides: boolean }) {
+function EvidenceCollectionScreen({
+  single, hasOverrides, firstPass, overrides, setOverrides, onRescore, rescoring, rescoreError, dirty,
+}: {
+  single: Detail | null;
+  hasOverrides: boolean;
+  // The vocabulary review moved here from Translate (20 Aug feedback, item 3).
+  // These props are the same ones that drove it there, threaded to its new home.
+  firstPass: Detail | null;
+  overrides: Overrides;
+  setOverrides: (fn: (prev: Overrides) => Overrides) => void;
+  onRescore: () => void;
+  rescoring: boolean;
+  rescoreError: string | null;
+  dirty: boolean;
+}) {
   // Local to this screen on purpose: switching evidence tabs must never touch
   // the outer `screen` state, so the "4. Evidence Collection" pill and the
   // Back/Next flow between screens stay exactly where they were.
@@ -1258,12 +1308,12 @@ function EvidenceCollectionScreen({ single, hasOverrides }: { single: Detail | n
             <b>Scored from your approved interpretation.</b> Every number below was recomputed
             after you corrected{" "}
             {single.overrides_applied?.length ? single.overrides_applied.join(", ") : "the reading"}{" "}
-            on the Translate screen.
+            in the Vocabulary review below.
           </>
         ) : (
           <>
             <b>Scored from the first-pass interpretation.</b> No marker corrections have been
-            applied — these are the model's own readings, reviewable on the Translate screen.
+            applied — these are the model's own readings, reviewable in the Vocabulary review below.
           </>
         )}
       </div>
@@ -1274,8 +1324,7 @@ function EvidenceCollectionScreen({ single, hasOverrides }: { single: Detail | n
       {hasOverrides ? (
         <div style={{ ...S.note, borderLeftColor: C.corrected, color: C.corrected, marginBottom: 16 }}>
           <b>These numbers do not include your latest corrections.</b> There are unapplied
-          changes in the Vocabulary review on the Translate screen — re-score there to bring
-          them through.
+          changes in the Vocabulary review below — re-score there to bring them through.
         </div>
       ) : null}
     </>
@@ -1329,7 +1378,21 @@ function EvidenceCollectionScreen({ single, hasOverrides }: { single: Detail | n
         <>
           {banners}
           {/* Content dispatch. One branch per built tab. */}
-          {tab === "vocab_spelling" ? <DetailView d={single} /> : null}
+          {tab === "vocab_spelling" ? (
+            <>
+              <DetailView d={single} />
+              <VocabularyReview
+                single={single}
+                firstPass={firstPass}
+                overrides={overrides}
+                setOverrides={setOverrides}
+                onRescore={onRescore}
+                rescoring={rescoring}
+                rescoreError={rescoreError}
+                dirty={dirty}
+              />
+            </>
+          ) : null}
         </>
       )}
     </div>
@@ -1925,9 +1988,12 @@ export default function Page() {
       </>
       )}
 
-      {screen === "translate" && (
-        <TranslateScreen
+      {screen === "translate" && <TranslateScreen single={current} />}
+
+      {screen === "evidence_collection" && (
+        <EvidenceCollectionScreen
           single={current}
+          hasOverrides={overridesDirty}
           firstPass={single}
           overrides={overrides}
           setOverrides={(fn) => setOverrides((prev) => fn(prev))}
@@ -1936,10 +2002,6 @@ export default function Page() {
           rescoreError={rescoreError}
           dirty={overridesDirty}
         />
-      )}
-
-      {screen === "evidence_collection" && (
-        <EvidenceCollectionScreen single={current} hasOverrides={overridesDirty} />
       )}
 
       {screen === "dimension_scoring" && (
