@@ -211,6 +211,9 @@ def _words(records):
         # `saw -> see` was applied and overrule it -- making the flip visible was
         # a condition of the rule, not a follow-up to it.
         "collision": r.get("collision"),
+        # True when this credit came from a multi-word lexical unit rather than
+        # a single word, so the evidence can say which it was.
+        "multi_word": bool(r.get("multi_word")),
     } for r in records]
 
 

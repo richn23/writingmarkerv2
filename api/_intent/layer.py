@@ -9,6 +9,7 @@ statement of how much of a score depends on reading through the spelling.
 
 import hashlib
 import json
+import re
 
 from _engine.analyse import _resummarise                        # noqa: E402
 from _engine.scoring import score as score_profile              # noqa: E402
@@ -16,8 +17,10 @@ from _engine.scoring import CREDIBLE_MIN                        # noqa: E402
 from _engine.spelling import (joinable_pairs,                   # noqa: E402
                               proper_noun_candidates,
                               suspicious_real_words)
-from _engine.views import (build_profile, highest_band,         # noqa: E402
-                           level_measures, tokenize)
+from _engine.gse import clean_band                              # noqa: E402
+from _engine.scoring import band_for_gse                        # noqa: E402
+from _engine.views import (FUNCTION_WORDS, build_profile,       # noqa: E402
+                           highest_band, level_measures, tokenize)
 
 from . import client, review, spelling_score, vocab_fit
 
@@ -269,6 +272,155 @@ def flag(text, result, bank, corrector):
 
 
 # ---------------------------------------------------------------------------
+# Multi-word lexical units
+#
+# `gse_vocabulary.json` carries 6,109 levelled multi-word entries -- phrasal
+# verbs, fixed phrases, compound nouns -- which GseBank loads into
+# `bank.multi_word` and then excludes from matching. gse.py's own docstring says
+# why: matching phrases in running text is a separate problem, and doing it
+# inside the bank would change every per-token `knows()`/`resolve()` call the
+# spelling corrector makes. So it happens here instead, on the corrected stream,
+# after the corrector has finished.
+#
+# WHAT A MATCH DOES. The same thing an accepted join already does: the unit
+# replaces its constituent tokens in the stream, so `task force` reaches the
+# scorer as one B2+ item and `task` and `force` never arrive separately. That is
+# not a new convention -- `corrected_sample()` has collapsed spans this way for
+# joins since it was written -- and it is what stops a span being counted twice.
+#
+# WHAT IS DELIBERATELY LEFT OUT of this first pass:
+#
+#   * Entries carrying punctuation -- `get off!`, `I abhor...`,
+#     `if it's any comfort (to you)`. 1,091 of the 6,109. They are not plain
+#     word sequences and cannot be matched as stored.
+#   * Any phrase containing a function word, unless it is allowlisted below.
+#     This is the guard that matters. `the sick` is a real B2+ entry meaning
+#     "people who are ill", and without the guard it fires inside "the sick man
+#     went home" and credits B2+ for an A2 construction. Over-crediting is worse
+#     than the under-crediting we have today, because the whole engine is built
+#     to refuse levels it cannot evidence.
+#   * Inflection inside the phrase. The entries store literal strings, no lemma
+#     field, so `paid up` will not match `pay up`. Generating inflected variants
+#     would multiply the false-positive surface; not in a first pass.
+#
+# The guard costs real coverage: 1,778 of the 6,109 entries are active, and most
+# phrasal verbs are excluded because their particles are function words. That is
+# the conservative direction on purpose. `go out` spans GSE 19-65 across seven
+# senses, and crediting it on a bare particle match would be a guess.
+
+# Phrases worth crediting despite containing a function word. Kept short and
+# explicit: each one has to earn its place by being common, unambiguous, and
+# wrong under the current single-word scoring.
+#
+# `a lot` is the founding case. Today it scores as `a` plus `lot`, and `lot`
+# alone resolves to its lowest single-word sense at GSE 50 (B1) -- so the
+# commonest low-level quantifier in the language credits as a mid-level word.
+# As a unit it is GSE 26, A1.
+_PHRASE_ALLOW = {"a lot"}
+
+_PUNCT_IN_PHRASE = re.compile(r"[()!?/,.']")
+
+
+def _phrase_eligible(phrase):
+    """Whether a reference phrase may be matched against running text."""
+    if _PUNCT_IN_PHRASE.search(phrase):
+        return False
+    words = phrase.split()
+    if len(words) < 2:
+        return False
+    if phrase in _PHRASE_ALLOW:
+        return True
+    return all(w not in FUNCTION_WORDS for w in words)
+
+
+def _phrase_index(bank):
+    """
+    {phrase: lowest-GSE sense} for every eligible multi-word entry, plus the
+    longest phrase length so the scan knows how far to look ahead.
+
+    Cached on the bank, which is built once per warm instance.
+    """
+    cached = getattr(bank, "_mw_index", None)
+    if cached is not None:
+        return cached
+    by_phrase = {}
+    for e in bank.multi_word:
+        phrase = (e.get("word") or "").strip().lower()
+        if not _phrase_eligible(phrase):
+            continue
+        by_phrase.setdefault(phrase, []).append(e)
+    index = {}
+    for phrase, senses in by_phrase.items():
+        # Lowest sense wins, exactly as it does for single words: `take off`
+        # spans GSE 22-67 and awarding the top of that on a bare string match
+        # would credit a level the text does not evidence.
+        primary = bank._primary(senses)
+        if isinstance(primary.get("gse"), (int, float)):
+            index[phrase] = primary
+    longest = max((len(p.split()) for p in index), default=0)
+    out = (index, longest)
+    setattr(bank, "_mw_index", out)
+    return out
+
+
+def _merge_phrases(stream, bank):
+    """
+    Collapse every eligible multi-word unit in the stream into one entry.
+
+    Longest match wins, so `a whole lot` beats `a lot`. Junk tokens never take
+    part -- a span containing noise is not a lexical unit.
+    """
+    index, longest = _phrase_index(bank)
+    if not index:
+        return stream
+    out, i, n = [], 0, len(stream)
+    while i < n:
+        hit = None
+        for size in range(min(longest, n - i), 1, -1):
+            span = stream[i:i + size]
+            if any(t.get("junk") for t in span):
+                continue
+            phrase = " ".join(t["lower"] for t in span)
+            sense = index.get(phrase)
+            if sense is not None:
+                hit = (size, phrase, sense, span)
+                break
+        if hit is None:
+            out.append(stream[i])
+            i += 1
+            continue
+        size, phrase, sense, span = hit
+        out.append({
+            "raw": " ".join(t["raw"] for t in span),
+            "lower": phrase,
+            # The unit is only as trustworthy as its least trustworthy token.
+            "confidence": min(t.get("confidence", 1.0) for t in span),
+            "junk": False,
+            "phrase": sense,
+        })
+        i += size
+    return out
+
+
+def _credit_phrase(rec, sense):
+    """Turn the unmatched record for a merged span into a matched one."""
+    gse = sense.get("gse")
+    rec["matched"] = True
+    rec["matched_form"] = rec["token"]
+    rec["gse"] = gse
+    rec["band"] = clean_band(sense.get("cefr"))
+    rec["coarse"] = band_for_gse(gse)
+    rec["pos"] = (sense.get("grammatical_category") or "").strip() or None
+    rec["definition"] = sense.get("definition") or None
+    rec["senses"] = 1
+    rec["collision"] = None
+    # Flagged so the UI can say this credit came from a phrase rather than a
+    # word, and so nothing downstream mistakes it for a single-word match.
+    rec["multi_word"] = True
+    return rec
+
+
+# ---------------------------------------------------------------------------
 # 2. Cache -- a re-run reproduces exactly and is not re-billed
 # ---------------------------------------------------------------------------
 
@@ -470,6 +622,16 @@ def _profile(stream, bank):
     prof = build_profile(stream, bank)
     for rec, tok in zip(prof["full"], stream):
         rec["junk"] = tok.get("junk", False)
+        # A merged span arrives unmatched, because the bank's index holds single
+        # words only. Credit it here, before the views below are derived from
+        # these same record objects.
+        if tok.get("phrase"):
+            _credit_phrase(rec, tok["phrase"])
+    # The tallies build_profile computed are stale for any span just credited.
+    prof["counts"]["matched"] = sum(1 for r in prof["full"] if r["matched"])
+    prof["counts"]["unmatched"] = sum(1 for r in prof["full"] if not r["matched"])
+    prof["counts"]["content_matched"] = sum(
+        1 for r in prof["content_only"] if r["matched"])
     prof["distinct"] = [r for r in prof["distinct"] if not r.get("junk")]
     prof["summary"] = _resummarise(prof["distinct"])
     prof["highest"] = highest_band(prof["distinct"])
@@ -636,6 +798,9 @@ def _apply(result, items, raw, bank, corrector, note):
     # rather than an intermediate the scorer happens to see.
     text = result["text"]
     corrected, stream, changes = corrected_sample(text, result, decisions)
+    # Multi-word units are collapsed after the corrector has finished, so the
+    # phrase is matched against the reading that will actually be scored.
+    stream = _merge_phrases(stream, bank)
     result["corrected_sample"] = corrected
     result["corrections"] = changes
     result["intent"] = _profile(stream, bank)
