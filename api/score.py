@@ -47,6 +47,10 @@ from _engine.spelling import Corrector, CAUTIOUS, LENIENT  # noqa: E402
 from _intent import client as intent_client              # noqa: E402
 from _intent import layer as intent_layer                # noqa: E402
 from _intent.review import ANSWERS as INTENT_ANSWERS     # noqa: E402
+from _grammar import detect as grammar_detect             # noqa: E402
+from _grammar import families as grammar_families         # noqa: E402
+from _grammar.sentences import split_sentences            # noqa: E402
+from _grammar.pos import make_pos_lookup as make_grammar_pos_lookup  # noqa: E402
 
 _DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_data")
 MAX_ROWS = 500
@@ -54,6 +58,11 @@ MAX_CHARS = 40000        # per sample; longer inputs are truncated, not rejected
 
 _bank = None
 _corrector = None
+_grammar_pos_of = None
+
+_GRAMMAR_STRUCTURE_NAMES = {
+    s["id"]: s.get("name") for s in grammar_families.EXPLORER_STRUCTURES if s.get("name")
+}
 
 # ---------------------------------------------------------------------------
 # Communicative Effect & Translation (docs/05) -- a new caller of the
@@ -194,6 +203,16 @@ def engine():
     return _bank, _corrector
 
 
+def _grammar_pos():
+    """posOf for the grammar detector, built once per warm instance from the
+    same GseBank Vocab/Spelling already use -- no second vocabulary index."""
+    global _grammar_pos_of
+    if _grammar_pos_of is None:
+        bank, _ = engine()
+        _grammar_pos_of = make_grammar_pos_lookup(bank)
+    return _grammar_pos_of
+
+
 # ---------------------------------------------------------------------------
 # Shaping the engine's output for the browser
 # ---------------------------------------------------------------------------
@@ -250,6 +269,81 @@ def _corrected_text(text, audit_rows):
         return rep.upper() if w.isupper() else (rep.capitalize() if w[0].isupper() else rep)
 
     return re.sub(r"[A-Za-z']+", sub, text)
+
+
+def _grammar_source_text(result):
+    """
+    The freshest interpretation text -- first-pass or marker-adjusted,
+    whichever this result reflects. `corrected_sample` is written by the same
+    `_apply()` call either way (docs/21), so no separate override handling is
+    needed here. Falls back to the deterministic lenient correction if the
+    intent layer never produced a sample (unavailable, or nothing to review
+    without a model reply) -- the same "intent, else lenient" fallback
+    Vocab/Spelling's own `_assessed()` already uses. Never the raw as-written
+    text: grammar structures are read off what the student meant to write.
+    """
+    sample = result.get("corrected_sample")
+    if sample:
+        return sample
+    return _corrected_text(result["text"], result["audit"]["lenient"])
+
+
+def _grammar_detected(text):
+    """
+    Range only -- structures the port can detect, not accuracy. Three-way
+    honest signal: `families` covers the 30 actively-detected structures
+    (each `detected` true/false, `partial` flagged with its stated
+    detects/misses text where it applies), and `deferred` is a fully separate
+    list -- 16 structures never attempted, each with the reason why, never
+    collapsed into a false "not detected" for something that was never
+    checked.
+    """
+    sents = split_sentences(text)
+    result = grammar_detect.detect_grammar_structures(sents, pos_of=_grammar_pos())
+
+    by_family = {}
+    for d in result["detected"]:
+        by_family.setdefault(d["explorer_id"], []).append(d)
+
+    partial_by_id = {p["id"]: p for p in grammar_detect.PARTIAL}
+
+    families = []
+    for explorer_id in grammar_detect.DETECTOR_FAMILIES:
+        instances = by_family.get(explorer_id, [])
+        partial = partial_by_id.get(explorer_id)
+        families.append({
+            "family": explorer_id,
+            "name": grammar_detect.NAMES.get(explorer_id, explorer_id),
+            "detected": bool(instances),
+            "partial": partial is not None,
+            "partial_detects": partial["detects"] if partial else None,
+            "partial_misses": partial["misses"] if partial else None,
+            "instances": [{
+                "family_id": inst["family_id"],
+                "level": inst["level"],
+                "level_num": inst["level_num"],
+                "guideword": inst.get("guideword"),
+                "can_do": inst.get("can_do"),
+                "matched": inst.get("matched"),
+                "matched_spans": inst.get("matched_spans"),
+                "count": inst.get("count"),
+                "selection_basis": inst.get("selection_basis"),
+                "condition_unverified": inst.get("condition_unverified"),
+                "general_description": inst.get("general_description"),
+            } for inst in instances],
+        })
+
+    deferred = [{
+        "family": d["id"],
+        "name": _GRAMMAR_STRUCTURE_NAMES.get(d["id"], d["id"]),
+        "reason": d["reason"],
+    } for d in grammar_detect.DEFERRED]
+
+    return {
+        "families": families,
+        "deferred": deferred,
+        "coverage": result.get("coverage"),
+    }
 
 
 def _intent_summary(result):
@@ -451,6 +545,12 @@ def detail(result):
         "spelling_score_detail": result.get("spelling_score"),
         "vocabulary_features": result.get("vocabulary_score"),
     })
+    out["grammar_detected"] = None
+    out["grammar_detected_error"] = None
+    try:
+        out["grammar_detected"] = _grammar_detected(_grammar_source_text(result))
+    except Exception as exc:                                  # never fail the score over this
+        out["grammar_detected_error"] = "%s: %s" % (type(exc).__name__, exc)
     return out
 
 

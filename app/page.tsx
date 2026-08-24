@@ -126,6 +126,34 @@ type Detail = Summary & {
   overrides_applied?: string[];
   overrides_unknown?: string[];
   communicative_carried_forward?: boolean;
+  // Range only -- structures the port can detect, not accuracy. See docs/21
+  // for the port and its one deliberate, documented divergence from LENS.
+  grammar_detected?: {
+    families: Array<{
+      family: string;
+      name: string;
+      detected: boolean;
+      partial: boolean;
+      partial_detects: string | null;
+      partial_misses: string | null;
+      instances: Array<{
+        family_id: string;
+        level: string;
+        level_num: number;
+        guideword: string | null;
+        can_do: string | null;
+        matched: string | null;
+        matched_spans: string[] | null;
+        count: number;
+        selection_basis: string | null;
+        condition_unverified: boolean;
+        general_description: string | null;
+      }>;
+    }>;
+    deferred: Array<{ family: string; name: string; reason: string }>;
+    coverage?: any;
+  } | null;
+  grammar_detected_error?: string | null;
 };
 
 // A marker's disagreement with one vocabulary proposal, keyed by the token as
@@ -203,7 +231,10 @@ type ScreenKey = typeof SCREENS[number]["key"];
 // placeholder is written from the label alone.
 const EVIDENCE_TABS = [
   { key: "vocab_spelling", label: "Vocabulary profile", built: true },
-  { key: "grammar", label: "Grammar profile", built: false },
+  // "Grammar detected" (Range) is real inside this tab; "Grammar accuracy" is
+  // still an honest placeholder within it (docs/21). `built: true` here only
+  // means the tab has real content behind it, not that every section does.
+  { key: "grammar", label: "Grammar profile", built: true },
   { key: "task_analysis", label: "Task Analysis", built: false },
   { key: "additional_metrics", label: "Additional Metrics", built: false },
 ] as const;
@@ -1740,6 +1771,171 @@ function VocabularyProfileTab({
   );
 }
 
+/* --------------------------------------------------------------- grammar */
+// Range only. "Grammar detected" reports which EGP structures showed up in
+// this script and at what level -- never whether they were used correctly.
+// "Grammar accuracy" is a real, separate construct (attempted-but-malformed
+// structures) that has no module behind it yet -- an honest placeholder, the
+// same shape as the generic "not built yet" tab card, not a narrow special
+// case pretending to be the real thing. See docs/21 for the port and its one
+// deliberate, documented divergence from LENS's own live behaviour.
+
+function LevelBadge({ level }: { level: string }) {
+  return (
+    <span style={{
+      display: "inline-block", fontSize: 12, fontWeight: 700, color: "#fff",
+      background: C.grammar, borderRadius: 5, padding: "2px 7px", letterSpacing: "0.02em",
+    }}>
+      {level.toUpperCase()}
+    </span>
+  );
+}
+
+function GrammarDetectedSection({ d }: { d: Detail }) {
+  const gd = d.grammar_detected;
+
+  if (d.grammar_detected_error) {
+    return (
+      <div style={{ ...S.note, borderLeftColor: C.bad, color: C.bad }}>
+        Grammar detection failed on this sample: {d.grammar_detected_error}
+      </div>
+    );
+  }
+  if (!gd) {
+    return <div style={S.note}>No grammar detection ran for this sample.</div>;
+  }
+
+  const detected = gd.families.filter((f) => f.detected);
+  const notDetected = gd.families.filter((f) => !f.detected);
+
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 14 }}>
+        <b>Range, not accuracy.</b> This reports which grammatical structures showed up in the
+        approved reading and at what EGP level — not whether they were formed correctly. A
+        structure absent below was not detected in this sample; it says nothing about whether the
+        writer can produce it. Read from the same interpretation the vocabulary and spelling
+        scores are, not the raw as-written text.
+      </p>
+
+      <h3 style={{ ...S.h3, marginTop: 0 }}>Detected in this sample ({detected.length})</h3>
+      {detected.length === 0 ? (
+        <div style={S.note}>No detectable structure fired on this sample.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          {detected.map((f) => (
+            <div key={f.family} style={S.card}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: f.partial ? 4 : 0 }}>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>{f.name}</span>
+                {f.partial ? (
+                  <span style={{ fontSize: 11, color: C.experimental, border: `1px solid ${C.experimental}`, borderRadius: 4, padding: "1px 6px" }}>
+                    partial coverage
+                  </span>
+                ) : null}
+              </div>
+              {f.partial ? (
+                <p style={{ fontSize: 11.5, color: C.ink3, margin: "0 0 8px" }}>
+                  Detects {f.partial_detects}. Misses {f.partial_misses}.
+                </p>
+              ) : null}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {f.instances.map((inst, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", fontSize: 13 }}>
+                    <LevelBadge level={inst.level} />
+                    <span style={{ color: C.ink3, fontSize: 12 }}>{inst.family_id}</span>
+                    <span style={{ fontStyle: "italic" }}>“{inst.matched}”</span>
+                    {inst.count > 1 ? (
+                      <span style={{ fontSize: 11, color: C.ink3 }}>× {inst.count}</span>
+                    ) : null}
+                    {inst.condition_unverified ? (
+                      <span style={{ fontSize: 11, color: C.experimental }}>can-do unverified</span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h3 style={S.h3}>Not detected in this sample ({notDetected.length})</h3>
+      <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 8 }}>
+        Absence here means nothing fired the detector, not that the structure is wrong or missing —
+        it may simply not appear in this piece of writing.
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+        {notDetected.map((f) => (
+          <span key={f.family} style={{ fontSize: 12, color: C.ink3, background: C.surface2, borderRadius: 5, padding: "3px 8px" }}
+                title={f.partial ? `Partial coverage — detects ${f.partial_detects}` : undefined}>
+            {f.name}{f.partial ? " *" : ""}
+          </span>
+        ))}
+      </div>
+
+      <h3 style={S.h3}>Not attempted — deferred ({gd.deferred.length})</h3>
+      <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 8 }}>
+        These structures are not checked at all, deliberately — a different signal from "not
+        detected". Never read a blank here as evidence the writer lacks the structure.
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {gd.deferred.map((dv) => (
+          <div key={dv.family} style={{ fontSize: 12, color: C.ink3, display: "flex", gap: 8 }}>
+            <span style={{ minWidth: 160, color: C.ink2 }}>{dv.name}</span>
+            <span>{dv.reason}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GrammarProfileTab({ d }: { d: Detail }) {
+  // Independent, so opening one never closes the other.
+  const [openDetected, setOpenDetected] = useState(false);
+  const [openAccuracy, setOpenAccuracy] = useState(false);
+
+  const detectedCount = d.grammar_detected?.families.filter((f) => f.detected).length ?? 0;
+
+  return (
+    <>
+      <Collapsible
+        title="Grammar detected"
+        open={openDetected}
+        onToggle={() => setOpenDetected((v) => !v)}
+        sub="Range — which structures appear, not whether they're correct"
+        headline={
+          <>
+            <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: C.grammar }}>
+              {detectedCount}
+            </span>
+            <span style={{ fontSize: 12, color: C.ink3 }}>structures detected</span>
+          </>
+        }
+      >
+        <GrammarDetectedSection d={d} />
+      </Collapsible>
+
+      <Collapsible
+        title="Grammar accuracy"
+        open={openAccuracy}
+        onToggle={() => setOpenAccuracy((v) => !v)}
+        headline={<span style={{ fontSize: 13, color: C.ink3 }}>not built yet</span>}
+      >
+        <div style={S.card}>
+          <h3 style={{ ...S.h3, marginTop: 0 }}>Not built yet</h3>
+          <p style={{ fontSize: 14, color: C.ink2, lineHeight: 1.6, marginBottom: 0 }}>
+            There is no grammar accuracy module in this codebase — nothing checks whether an
+            attempted structure was formed correctly, and there is no partial version running
+            behind this section. "Grammar detected" above only reports which structures appear;
+            it is not a proxy for whether they were used correctly, and this section will stay
+            empty until an accuracy module exists.
+          </p>
+        </div>
+      </Collapsible>
+    </>
+  );
+}
+
 function EvidenceCollectionScreen({
   single, hasOverrides, firstPass, overrides, setOverrides, onRescore, rescoring, rescoreError, dirty,
 }: {
@@ -1842,7 +2038,7 @@ function EvidenceCollectionScreen({
       ) : !single ? (
         <div style={S.note}>
           No sample has been scored yet. Run one on the <b>Question</b> screen, then come back
-          here to see the vocabulary profile.
+          here to see the {active.label.toLowerCase()}.
         </div>
       ) : (
         <>
@@ -1859,6 +2055,8 @@ function EvidenceCollectionScreen({
               rescoreError={rescoreError}
               dirty={dirty}
             />
+          ) : tab === "grammar" ? (
+            <GrammarProfileTab d={single} />
           ) : null}
         </>
       )}

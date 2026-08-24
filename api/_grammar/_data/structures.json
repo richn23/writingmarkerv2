@@ -1,0 +1,3610 @@
+{
+  "meta": {
+    "name": "LENS Structure Explorer",
+    "purpose": "Human-curated grammar reference. Knowledge layer only — no scoring, no readiness, no assessment.",
+    "source": "EAQUALS Grammar Inventory (canonical) + standard CEFR grammar reference + corpus-verified examples.",
+    "coverage": "Canonical EAQUALS grammar inventory (~45 structures across A1-C1).",
+    "egp_keying": {
+      "added": "2026-08-04",
+      "purpose": "Detection layer -> EGP reference. Each structure keys to one or more grammar-bank family_ids (grammar_profile.json sub_categories). Turns the formation patterns into the analyser's detection source (Block 1.2 / Block 2.6).",
+      "level_authority": "EGP is authoritative: at detection, resolve to the specific matched EGP structure and report ITS level (e.g. 'should - B1'), not the explorer's typically_introduced/common_extension range (which stays a display hint).",
+      "bundle": "egp_bundle=true means the entry covers >1 distinct EGP structure (e.g. modals-obligation = must/should/have to); resolve to whichever matched.",
+      "flagged": "egp_key_status='keyed_imperfect' = no exact EGP family exists for this concept; the key is the closest available and needs review (wish, inversion, verb-to-be, intensifiers, concessive-clauses, adverbial-phrases).",
+      "cross_cutting": "egp_cross_cutting=true = the concept spans several EGP families with no single dedicated home (wish, inversion, verb-to-be, concessive-clauses, intensifiers, adverbs). Keys verified against where matching structures actually live in the bank (distinctive-marker check, 2026-08-04).",
+      "twin_resolutions": {
+        "method": "Where a keyed family had a near-twin (shared sub_category or near-identical name), both were checked by distinctive-marker match against grammar_profile; the family whose structures actually contain the concept was kept. Verified 2026-08-04.",
+        "adverbs_TRAP": "The bank family `adverbs` holds RESPONSE TOKENS (yeah/right), NOT manner/comment adverbs — an id whose contents contradict its name. Manner/comment + frequency + position adverbs live in adverbs_and_adverb_phrases_types_and_meanings / adverbs_as_modifiers / adverbs__position, which is what adverbs, adverbs-of-frequency and adverbial-phrases are keyed to.",
+        "comparatives_vs_clauses__comparatives": "comparatives (adjective -er/more) kept; clauses__comparatives is than-clauses.",
+        "demonstratives_vs_pronouns__demonstratives": "demonstratives kept (determiner use; share sub_category).",
+        "kept_both_twins": [
+          "possessives+possessive",
+          "quantity+pronouns__quantity",
+          "prepositional+prepostions (note: prepostions is a misspelled family_id)",
+          "phrasal+phrasal-prepositional"
+        ],
+        "aspectual_twins": "present/past perfect, present/past perfect continuous, present_simple vs present_simple_for_future_use — disambiguated by name (present vs past; simple vs future-use); each explorer keyed to its own family."
+      },
+      "single_source": "structures.json is the single source of family keys; src/lib/egpFamilies.ts resolves them and asserts at module load that grammarDetect fires nothing undeclared.",
+      "keyable_pass": {
+        "date": "2026-08-05",
+        "rule": "A family is KEYABLE when an existing heading already names that language; ORPHANED when no heading names it at all. Orphaned families are shown on the Explorer under \"Additional EGP families\", never merged into the 45."
+      }
+    }
+  },
+  "structures": [
+    {
+      "id": "present-simple",
+      "name": "Present Simple",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Present simple (A1)"
+      },
+      "overview": {
+        "short_description": "Used for facts, habits, routines, and permanent situations.",
+        "examples": [
+          "I work in London.",
+          "She drinks coffee every morning."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + base verb (+s for he/she/it)",
+          "example": "She works"
+        },
+        "negative": {
+          "pattern": "Subject + do/does not + base verb",
+          "example": "She doesn't work"
+        },
+        "question": {
+          "pattern": "Do/Does + subject + base verb?",
+          "example": "Does she work?"
+        },
+        "notes": "Third person singular adds -s/-es."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-habits-and-routines",
+          "function_name": "Describing habits and routines",
+          "description": "State regular activities.",
+          "example": "I usually walk to work."
+        },
+        {
+          "function_id": "expressing-opinion",
+          "function_name": "Expressing Opinion",
+          "description": "State a view as a fact.",
+          "example": "I think it is fair."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "every day",
+          "usually",
+          "always",
+          "often",
+          "never"
+        ],
+        "common_chunks": [
+          "Subject + verb + object",
+          "adverb of frequency + verb"
+        ],
+        "collocations": [
+          "go to work",
+          "have breakfast",
+          "live in"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can describe daily routines",
+        "Can state facts about themselves"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "present-continuous",
+          "relationship": "grammar_family",
+          "notes": "Present simple for habits; present continuous for actions happening now."
+        },
+        {
+          "structure_id": "adverbs-of-frequency",
+          "relationship": "pedagogical_sequence",
+          "notes": "Frequency adverbs commonly taught with the present simple."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "present_simple"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "present-continuous",
+      "name": "Present Continuous",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Present continuous (A1)"
+      },
+      "overview": {
+        "short_description": "Used for actions happening now or around now, and some future arrangements.",
+        "examples": [
+          "I am reading a book.",
+          "They are meeting tomorrow."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + am/is/are + verb-ing",
+          "example": "She is working"
+        },
+        "negative": {
+          "pattern": "Subject + am/is/are not + verb-ing",
+          "example": "She isn't working"
+        },
+        "question": {
+          "pattern": "Am/Is/Are + subject + verb-ing?",
+          "example": "Is she working?"
+        },
+        "notes": "Also used for future arrangements (present continuous for future)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-things",
+          "function_name": "Describing things",
+          "description": "Describe what is happening now.",
+          "example": "The children are playing outside."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "now",
+          "at the moment",
+          "currently",
+          "today"
+        ],
+        "common_chunks": [
+          "Subject + be + verb-ing"
+        ],
+        "collocations": [
+          "getting better",
+          "looking forward to"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can describe what is happening now"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "present-simple",
+          "relationship": "grammar_family",
+          "notes": "Habits vs. actions in progress."
+        },
+        {
+          "structure_id": "future-will-going-to",
+          "relationship": "grammar_family",
+          "notes": "Present continuous can express planned future arrangements."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "present_continuous"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "past-simple",
+      "name": "Past Simple",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Past simple (A1/A2)"
+      },
+      "overview": {
+        "short_description": "Used to describe completed actions and events in the past.",
+        "examples": [
+          "I went to the cinema yesterday.",
+          "They finished the project last week."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + past verb",
+          "example": "I went"
+        },
+        "negative": {
+          "pattern": "Subject + did not + base verb",
+          "example": "I didn't go"
+        },
+        "question": {
+          "pattern": "Did + subject + base verb?",
+          "example": "Did you go?"
+        },
+        "notes": "Regular verbs add -ed; irregular verbs have unique forms (go→went)."
+      },
+      "forms_and_variations": {
+        "regular_verbs": {
+          "examples": [
+            "walked",
+            "talked",
+            "played"
+          ]
+        },
+        "irregular_verbs": {
+          "examples": [
+            "went",
+            "came",
+            "saw"
+          ]
+        },
+        "typical_patterns": [
+          "Subject + past verb + time expression",
+          "When + past simple, past simple"
+        ]
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-past-experience",
+          "function_name": "Describing Past Experience",
+          "description": "Recount what happened.",
+          "example": "I went to the party yesterday."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "yesterday",
+          "last week",
+          "ago",
+          "then",
+          "in 2019"
+        ],
+        "common_chunks": [
+          "went to + location",
+          "past verb + time expression",
+          "first, then, after that"
+        ],
+        "collocations": [
+          "had a great time",
+          "arrived at/in"
+        ],
+        "discourse_markers": [
+          "then",
+          "afterwards",
+          "next",
+          "finally"
+        ]
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can describe past events",
+        "Can narrate completed actions"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "present-perfect",
+          "relationship": "grammar_family",
+          "notes": "Past simple for finished events; present perfect for recent or relevant events."
+        },
+        {
+          "structure_id": "past-continuous",
+          "relationship": "grammar_family",
+          "notes": "Past simple for completed actions; past continuous for actions in progress."
+        },
+        {
+          "structure_id": "past-perfect",
+          "relationship": "grammar_family",
+          "notes": "Past simple for the main narrative; past perfect for earlier events."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "past_simple"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "past-continuous",
+      "name": "Past Continuous",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Past continuous (A2)"
+      },
+      "overview": {
+        "short_description": "Used for actions in progress at a moment in the past, often interrupted by another event.",
+        "examples": [
+          "I was reading when she called.",
+          "They were waiting at the station."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + was/were + verb-ing",
+          "example": "I was reading"
+        },
+        "negative": {
+          "pattern": "Subject + was/were not + verb-ing",
+          "example": "I wasn't reading"
+        },
+        "question": {
+          "pattern": "Was/Were + subject + verb-ing?",
+          "example": "Were you reading?"
+        },
+        "notes": "Often paired with the past simple for interruptions (when/while)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-past-experience",
+          "function_name": "Describing Past Experience",
+          "description": "Set the scene or describe an ongoing past action.",
+          "example": "While I was studying, the phone rang."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "while",
+          "when",
+          "as",
+          "at that time"
+        ],
+        "common_chunks": [
+          "While + past continuous, past simple"
+        ],
+        "collocations": [],
+        "discourse_markers": [
+          "while",
+          "as"
+        ]
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can describe simultaneous past actions"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "past-simple",
+          "relationship": "grammar_family",
+          "notes": "Interrupted action (continuous) vs. the interrupting event (simple)."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "past_continuous"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "present-perfect",
+      "name": "Present Perfect",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Present perfect (A2/B1)"
+      },
+      "overview": {
+        "short_description": "Used for past actions with present relevance, experiences, and unfinished time.",
+        "examples": [
+          "I have visited Japan.",
+          "She has just finished her homework."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + have/has + past participle",
+          "example": "I have seen it"
+        },
+        "negative": {
+          "pattern": "Subject + have/has not + past participle",
+          "example": "I haven't seen it"
+        },
+        "question": {
+          "pattern": "Have/Has + subject + past participle?",
+          "example": "Have you seen it?"
+        },
+        "notes": "Used with for/since, just/already/yet, ever/never."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-past-experience",
+          "function_name": "Describing Past Experience",
+          "description": "Talk about life experiences without a specific time.",
+          "example": "I have travelled a lot."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "for",
+          "since",
+          "just",
+          "already",
+          "yet",
+          "ever",
+          "never"
+        ],
+        "common_chunks": [
+          "have/has + just/already + past participle",
+          "have/has + been to"
+        ],
+        "collocations": [
+          "have been to",
+          "has gone to"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can describe experiences",
+        "Can talk about recent events"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "past-simple",
+          "relationship": "grammar_family",
+          "notes": "Finished time + specific moment (simple) vs. relevance to now (perfect)."
+        },
+        {
+          "structure_id": "present-perfect-continuous",
+          "relationship": "grammar_family",
+          "notes": "Result/experience (perfect) vs. duration of an ongoing activity (perfect continuous)."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "present_perfect_simple"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "present-perfect-continuous",
+      "name": "Present Perfect Continuous",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Present perfect continuous (B1)"
+      },
+      "overview": {
+        "short_description": "Used to emphasise the duration of an activity continuing up to now.",
+        "examples": [
+          "I have been working all day.",
+          "It has been raining for hours."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + have/has been + verb-ing",
+          "example": "I have been working"
+        },
+        "negative": {
+          "pattern": "Subject + have/has not been + verb-ing",
+          "example": "I haven't been working"
+        },
+        "question": {
+          "pattern": "Have/Has + subject + been + verb-ing?",
+          "example": "Have you been working?"
+        },
+        "notes": "Often with for/since to show duration."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-past-experience",
+          "function_name": "Describing Past Experience",
+          "description": "Stress how long an activity has lasted.",
+          "example": "She has been studying English for three years."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "for",
+          "since",
+          "all day",
+          "lately",
+          "recently"
+        ],
+        "common_chunks": [
+          "have/has been + verb-ing + for/since"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "B2"
+      },
+      "related_gse_objectives": [
+        "Can emphasise the duration of recent activities"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "present-perfect",
+          "relationship": "grammar_family",
+          "notes": "Completion/result vs. ongoing duration."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "present_perfect_continuous"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "past-perfect",
+      "name": "Past Perfect",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Past perfect (B1/B2)"
+      },
+      "overview": {
+        "short_description": "Used for an action completed before another point in the past.",
+        "examples": [
+          "By the time I arrived, they had left.",
+          "She had already eaten when I called."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + had + past participle",
+          "example": "I had left"
+        },
+        "negative": {
+          "pattern": "Subject + had not + past participle",
+          "example": "I hadn't left"
+        },
+        "question": {
+          "pattern": "Had + subject + past participle?",
+          "example": "Had you left?"
+        },
+        "notes": "Shows the earlier of two past events."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-past-experience",
+          "function_name": "Describing Past Experience",
+          "description": "Order past events.",
+          "example": "When I arrived, the train had already gone."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "by the time",
+          "already",
+          "before",
+          "after",
+          "when"
+        ],
+        "common_chunks": [
+          "By the time + past simple, past perfect",
+          "had already + past participle"
+        ],
+        "collocations": [],
+        "discourse_markers": [
+          "by then",
+          "previously"
+        ]
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "B2"
+      },
+      "related_gse_objectives": [
+        "Can sequence past events with clarity"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "past-simple",
+          "relationship": "grammar_family",
+          "notes": "Main narrative (simple) vs. earlier background event (perfect)."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "past_perfect_simple"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "future-will-going-to",
+      "name": "Future: will & going to",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Future time (will and going to) (A2)"
+      },
+      "overview": {
+        "short_description": "Used for predictions, decisions, intentions, and plans.",
+        "examples": [
+          "I will help you.",
+          "I'm going to study medicine."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + will + base verb | Subject + am/is/are going to + base verb",
+          "example": "It will rain | It is going to rain"
+        },
+        "negative": {
+          "pattern": "Subject + won't + base verb | ... not going to ...",
+          "example": "It won't rain"
+        },
+        "question": {
+          "pattern": "Will + subject + base verb? | Am/Is/Are + subject + going to + base verb?",
+          "example": "Will it rain?"
+        },
+        "notes": "'will' for spontaneous decisions/predictions; 'going to' for intentions/evidence."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-possibility",
+          "function_name": "Expressing Possibility",
+          "description": "Predict future events.",
+          "example": "It will probably be cold."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "tomorrow",
+          "next week",
+          "soon",
+          "later",
+          "in the future"
+        ],
+        "common_chunks": [
+          "I think + will",
+          "be going to + base verb"
+        ],
+        "collocations": [
+          "going to be",
+          "will probably"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can make predictions",
+        "Can talk about plans and intentions"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "present-continuous",
+          "relationship": "grammar_family",
+          "notes": "Arrangements can also use present continuous."
+        },
+        {
+          "structure_id": "conditionals-real",
+          "relationship": "pedagogical_sequence",
+          "notes": "1st conditional uses 'will' for results."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "future_simple_with_will_and_shall",
+        "future_with_be_going_to",
+        "modality__will",
+        "future__present_simple_for_future_use",
+        "future__future_expressions_with_be",
+        "future__present_continuous_for_future_use",
+        "future__future_in_the_past"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "comparatives-superlatives",
+      "name": "Comparatives & Superlatives",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Comparatives and superlatives (A1/A2)"
+      },
+      "overview": {
+        "short_description": "Used to compare two or more things.",
+        "examples": [
+          "This book is longer than that one.",
+          "It is the best film of the year."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "adj+er / more + adj (comparative); the + adj+est / most + adj (superlative)",
+          "example": "bigger / more interesting; the biggest / the most interesting"
+        },
+        "negative": {
+          "pattern": "not as + adj + as",
+          "example": "not as big as"
+        },
+        "question": {
+          "pattern": "Which is + comparative?",
+          "example": "Which is bigger?"
+        },
+        "notes": "Short adjectives add -er/-est; longer ones use more/most. Irregulars: good→better→best."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-things",
+          "function_name": "Describing things",
+          "description": "Compare qualities.",
+          "example": "The new phone is faster than the old one."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "X is + comparative + than + Y",
+          "the + superlative + of/in"
+        ],
+        "collocations": [
+          "much better",
+          "by far the best"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can compare people, places and things"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "intensifiers",
+          "relationship": "grammar_family",
+          "notes": "Degree with very/too/enough vs. comparison with -er/more … than."
+        },
+        {
+          "structure_id": "adverbs",
+          "relationship": "grammar_family",
+          "notes": "Adverbs compare the same way: more quickly, faster."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "comparatives",
+        "superlatives"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "modals-obligation",
+      "name": "Modals of Obligation (must / have to / should)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Modals - have to / should / must (A1–B1)"
+      },
+      "overview": {
+        "short_description": "Used to express obligation, necessity, prohibition, and advice.",
+        "examples": [
+          "You must wear a seatbelt.",
+          "You should rest."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + must/have to/should + base verb",
+          "example": "You must go"
+        },
+        "negative": {
+          "pattern": "mustn't (prohibition) / don't have to (no obligation) / shouldn't (advice)",
+          "example": "You mustn't smoke / You don't have to come"
+        },
+        "question": {
+          "pattern": "Do you have to + base verb? / Should I + base verb?",
+          "example": "Do I have to pay?"
+        },
+        "notes": "'mustn't' = prohibited; 'don't have to' = not necessary — an important contrast."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-obligation",
+          "function_name": "Expressing Obligation / Necessity",
+          "description": "State what is required.",
+          "example": "Employees must sign in."
+        },
+        {
+          "function_id": "expressing-advice",
+          "function_name": "Expressing Advice",
+          "description": "Recommend action.",
+          "example": "You should see a doctor."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "have to + base verb",
+          "should + base verb"
+        ],
+        "collocations": [
+          "have to go",
+          "must admit"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can express obligation and necessity",
+        "Can give advice"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "modals-deduction",
+          "relationship": "grammar_family",
+          "notes": "'must' also expresses deduction ('he must be tired')."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "must",
+        "should",
+        "have_got_to",
+        "ought",
+        "modality__need"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "modals-deduction",
+      "name": "Modals of Deduction (must / can't / might)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Modals - must/can't deduction; might/may (B1/B2)"
+      },
+      "overview": {
+        "short_description": "Used to express how certain we are about something.",
+        "examples": [
+          "He must be tired.",
+          "She can't be at home.",
+          "It might rain."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + must/might/may/could/can't + base verb",
+          "example": "She must know"
+        },
+        "negative": {
+          "pattern": "Subject + can't + base verb (impossible)",
+          "example": "It can't be true"
+        },
+        "question": {
+          "pattern": "Could + subject + base verb?",
+          "example": "Could it be true?"
+        },
+        "notes": "Past deduction: must have / can't have / might have + past participle."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-deduction",
+          "function_name": "Expressing Deduction / Certainty",
+          "description": "Infer from evidence.",
+          "example": "The lights are off — they must have left."
+        },
+        {
+          "function_id": "expressing-possibility",
+          "function_name": "Expressing Possibility",
+          "description": "Express uncertainty.",
+          "example": "She might be late."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "must be",
+          "might be",
+          "can't be"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "C1"
+      },
+      "related_gse_objectives": [
+        "Can speculate and make deductions"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "modals-obligation",
+          "relationship": "grammar_family",
+          "notes": "Same modal forms; different meaning (obligation vs. deduction)."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "must",
+        "may",
+        "might",
+        "could",
+        "can"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "conditionals-real",
+      "name": "Conditionals: Zero & First",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Zero and 1st conditional (A2)"
+      },
+      "overview": {
+        "short_description": "Used for general truths (zero) and likely future results (first).",
+        "examples": [
+          "If you heat water, it boils.",
+          "If you study, you will pass."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "If + present simple, present simple (zero) | If + present simple, will + base verb (first)",
+          "example": "If it rains, we stay in | If it rains, we will stay in"
+        },
+        "negative": {
+          "pattern": "If + present, won't + base verb",
+          "example": "If you don't hurry, we'll be late"
+        },
+        "question": {
+          "pattern": "What will you do if + present?",
+          "example": "What will you do if it rains?"
+        },
+        "notes": "Comma when the if-clause comes first."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-conditional",
+          "function_name": "Expressing Condition",
+          "description": "State conditions and results.",
+          "example": "If you press this, the machine starts."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "If + present, will + base verb",
+          "unless + present"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can talk about real conditions and consequences"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "conditionals-unreal",
+          "relationship": "grammar_family",
+          "notes": "Real (likely) vs. hypothetical/unreal conditions."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "conditional"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "conditionals-unreal",
+      "name": "Conditionals: Second & Third",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Conditionals, 2nd and 3rd (B1)"
+      },
+      "overview": {
+        "short_description": "Used for hypothetical present/future (second) and unreal past (third).",
+        "examples": [
+          "If I had more time, I would travel.",
+          "If I had known, I would have helped."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "If + past simple, would + base verb (2nd) | If + past perfect, would have + past participle (3rd)",
+          "example": "If I won, I would buy a house | If I had won, I would have bought a house"
+        },
+        "negative": {
+          "pattern": "If + past, wouldn't + base verb",
+          "example": "If I knew, I wouldn't ask"
+        },
+        "question": {
+          "pattern": "What would you do if + past simple?",
+          "example": "What would you do if you won?"
+        },
+        "notes": "Second = imaginary now/future; third = regrets about the past."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-conditional",
+          "function_name": "Expressing Condition",
+          "description": "Speculate about unreal situations.",
+          "example": "If I were you, I would apologise."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "If I were you, I would…",
+          "If + past perfect, would have + past participle"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "B2"
+      },
+      "related_gse_objectives": [
+        "Can talk about hypothetical and unreal situations"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "conditionals-real",
+          "relationship": "grammar_family",
+          "notes": "Likely conditions vs. hypothetical ones."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "conditional"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "passive",
+      "name": "The Passive",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Simple passive (B1) / Passives (B2)"
+      },
+      "overview": {
+        "short_description": "Used to focus on the action or its receiver rather than the doer.",
+        "examples": [
+          "The report was written last week.",
+          "English is spoken here."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + be (correct tense) + past participle (+ by + agent)",
+          "example": "The cake was eaten"
+        },
+        "negative": {
+          "pattern": "Subject + be + not + past participle",
+          "example": "The cake wasn't eaten"
+        },
+        "question": {
+          "pattern": "Be + subject + past participle?",
+          "example": "Was the cake eaten?"
+        },
+        "notes": "The agent (by…) is often omitted when unknown or unimportant."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-things",
+          "function_name": "Describing things",
+          "description": "Describe processes objectively.",
+          "example": "The bridge was built in 1890."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "be + past participle + by",
+          "It is said that…"
+        ],
+        "collocations": [
+          "is known as",
+          "was made of"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "C1"
+      },
+      "related_gse_objectives": [
+        "Can describe processes and procedures"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "verb-to-be",
+          "relationship": "pedagogical_sequence",
+          "notes": "Passive is built on 'be' + past participle — secure 'be' forms first."
+        },
+        {
+          "structure_id": "present-perfect",
+          "relationship": "grammar_family",
+          "notes": "Both reuse the past participle; 'has been taken' combines them."
+        },
+        {
+          "structure_id": "reported-speech",
+          "relationship": "grammar_family",
+          "notes": "Both are hallmarks of formal, impersonal register (news, reports)."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "passives_form",
+        "passives__get_and_have"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "relative-clauses",
+      "name": "Relative Clauses",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Relative clauses (B2)"
+      },
+      "overview": {
+        "short_description": "Used to add information about a noun using who, which, that, whose, where.",
+        "examples": [
+          "The man who lives next door is a teacher.",
+          "The book, which was long, was interesting."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Noun + relative pronoun + clause",
+          "example": "the person who called"
+        },
+        "negative": {
+          "pattern": "(as for the clause verb)",
+          "example": "the film that wasn't popular"
+        },
+        "question": {
+          "pattern": "(relative clauses are not questions)",
+          "example": "—"
+        },
+        "notes": "Defining clauses identify the noun (no commas); non-defining add extra info (commas)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-people",
+          "function_name": "Describing people",
+          "description": "Identify or add detail about a noun.",
+          "example": "She's the colleague who helped me."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "noun + who/which/that + clause",
+          "noun, which + clause,"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "B2"
+      },
+      "related_gse_objectives": [
+        "Can give detailed descriptions using relative clauses"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "questions",
+          "relationship": "grammar_family",
+          "notes": "Reuses wh-words (who, which, whose) in statement word order."
+        },
+        {
+          "structure_id": "subordination",
+          "relationship": "grammar_family",
+          "notes": "Both embed a clause inside another; relatives modify a noun."
+        },
+        {
+          "structure_id": "pronouns",
+          "relationship": "grammar_family",
+          "notes": "The relative pronoun replaces a repeated personal pronoun."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "relative"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "reported-speech",
+      "name": "Reported Speech",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Reported speech (B1/B2)"
+      },
+      "overview": {
+        "short_description": "Used to report what someone said, usually with a tense shift back.",
+        "examples": [
+          "She said she was tired.",
+          "He told me he had finished."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + reporting verb (+ that) + clause (tense shifted back)",
+          "example": "She said (that) she was busy"
+        },
+        "negative": {
+          "pattern": "Subject + said + not…",
+          "example": "He said he didn't agree"
+        },
+        "question": {
+          "pattern": "Subject + asked + if/wh- + clause",
+          "example": "She asked if I was ready"
+        },
+        "notes": "Pronouns, tenses, and time references usually shift (now→then, today→that day)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-past-experience",
+          "function_name": "Describing Past Experience",
+          "description": "Relay what others said.",
+          "example": "He explained that the office was closed."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "the day before",
+          "the next day",
+          "then"
+        ],
+        "common_chunks": [
+          "said (that) + clause",
+          "asked if/whether + clause"
+        ],
+        "collocations": [
+          "told me that",
+          "admitted that"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "B2"
+      },
+      "related_gse_objectives": [
+        "Can report what others have said"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "past-simple",
+          "relationship": "pedagogical_sequence",
+          "notes": "Backshift needs secure past forms: 'I like it' → she said she liked it."
+        },
+        {
+          "structure_id": "past-perfect",
+          "relationship": "grammar_family",
+          "notes": "Backshift destination: past simple reports as past perfect."
+        },
+        {
+          "structure_id": "questions",
+          "relationship": "grammar_family",
+          "notes": "Reported questions drop inversion: 'Where is it?' → asked where it was."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "reported_speech",
+        "verbs__patterns_that_clauses"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "coordinating-conjunctions",
+      "name": "Coordinating Conjunctions",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Connecting words: and, but, because (A1)"
+      },
+      "overview": {
+        "short_description": "Join words, phrases, or clauses of equal weight (and, but, or, so).",
+        "examples": [
+          "I like tea and coffee.",
+          "It was cold, but sunny."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Clause + and/but/or/so + clause",
+          "example": "I was tired, so I went home"
+        },
+        "negative": {
+          "pattern": "neither … nor",
+          "example": "Neither he nor I knew"
+        },
+        "question": {
+          "pattern": "(coordination is not a question type)",
+          "example": "—"
+        },
+        "notes": "Joins equal elements; for contrast/cause subordinators see related structures."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-contrast",
+          "function_name": "Expressing Contrast",
+          "description": "Show contrast with 'but'.",
+          "example": "The book was long, but interesting."
+        },
+        {
+          "function_id": "expressing-result",
+          "function_name": "Expressing Result",
+          "description": "Show result with 'so'.",
+          "example": "It rained, so we stayed in."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "clause + but + clause",
+          "clause + so + clause"
+        ],
+        "collocations": [],
+        "discourse_markers": [
+          "and",
+          "but",
+          "or",
+          "so"
+        ]
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can link ideas with simple connectors"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "concessive-clauses",
+          "relationship": "pedagogical_sequence",
+          "notes": "'but' (A2) develops into 'although' (B1) for contrast."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "coordinating",
+        "coordinated"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "concessive-clauses",
+      "name": "Concessive Clauses (although / though)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Connecting words expressing contrast (B1)"
+      },
+      "overview": {
+        "short_description": "Subordinate clauses that express contrast or concession.",
+        "examples": [
+          "Although it was cold, we went out.",
+          "She passed, even though she hadn't studied."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Although/Though/Even though + clause, main clause",
+          "example": "Although it rained, we enjoyed it"
+        },
+        "negative": {
+          "pattern": "(negation falls in the clause)",
+          "example": "Although he didn't try, he won"
+        },
+        "question": {
+          "pattern": "(not a question type)",
+          "example": "—"
+        },
+        "notes": "More formal than 'but'; the clause can come first or second."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-contrast",
+          "function_name": "Expressing Contrast / Concession",
+          "description": "Acknowledge an opposing point.",
+          "example": "Although the film was long, I enjoyed it."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "Although + clause, main clause"
+        ],
+        "collocations": [],
+        "discourse_markers": [
+          "although",
+          "though",
+          "even though",
+          "however"
+        ]
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "C1"
+      },
+      "related_gse_objectives": [
+        "Can express contrast using subordination"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "coordinating-conjunctions",
+          "relationship": "pedagogical_sequence",
+          "notes": "Develops from 'but' (A2)."
+        },
+        {
+          "structure_id": "subordination",
+          "relationship": "grammar_family",
+          "notes": "A type of subordinate clause."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "subordinating",
+        "subordinated"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed",
+      "egp_cross_cutting": true
+    },
+    {
+      "id": "subordination",
+      "name": "Subordination (because / when / if …)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Connecting words expressing cause and effect, contrast etc. (B1)"
+      },
+      "overview": {
+        "short_description": "Linking a dependent clause to a main clause to show reason, time, condition, or contrast.",
+        "examples": [
+          "We stayed home because it was raining.",
+          "When the bell rang, the class ended."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subordinator + clause + main clause (or main clause + subordinator + clause)",
+          "example": "Because it was late, we left"
+        },
+        "negative": {
+          "pattern": "(negation falls in the relevant clause)",
+          "example": "When I didn't reply, she called"
+        },
+        "question": {
+          "pattern": "(not a question type)",
+          "example": "—"
+        },
+        "notes": "Common subordinators: because, since, as (reason); when, while, after, before (time); if, unless (condition); although (contrast)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-cause",
+          "function_name": "Expressing Cause / Reason",
+          "description": "Give reasons.",
+          "example": "I left early because I was tired."
+        },
+        {
+          "function_id": "describing-past-experience",
+          "function_name": "Describing Past Experience",
+          "description": "Sequence events with time clauses.",
+          "example": "When I arrived, they were eating."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "when",
+          "while",
+          "before",
+          "after",
+          "until"
+        ],
+        "common_chunks": [
+          "because + clause",
+          "when + clause, clause"
+        ],
+        "collocations": [],
+        "discourse_markers": [
+          "because",
+          "since",
+          "when",
+          "while",
+          "if"
+        ]
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can link ideas using subordination"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "concessive-clauses",
+          "relationship": "grammar_family",
+          "notes": "Concessive clauses are a kind of subordination."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "subordinating"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "gerunds-infinitives",
+      "name": "Gerunds & Infinitives",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Gerunds; verb + ing/infinitive (A2)"
+      },
+      "overview": {
+        "short_description": "Using -ing forms and to-infinitives after certain verbs and prepositions.",
+        "examples": [
+          "I enjoy reading.",
+          "I want to leave.",
+          "She's good at cooking."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "verb + -ing (gerund) | verb + to + base verb (infinitive)",
+          "example": "enjoy reading | want to go"
+        },
+        "negative": {
+          "pattern": "verb + not + -ing / not to + base verb",
+          "example": "avoid making mistakes"
+        },
+        "question": {
+          "pattern": "Do you like + -ing?",
+          "example": "Do you like swimming?"
+        },
+        "notes": "Some verbs take -ing (enjoy, avoid), some take to (want, decide), some both with a meaning change (stop, remember)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-opinion",
+          "function_name": "Expressing Opinion",
+          "description": "Talk about likes and preferences.",
+          "example": "I prefer working from home."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "enjoy/avoid/finish + -ing",
+          "want/need/decide + to + base verb",
+          "preposition + -ing"
+        ],
+        "collocations": [
+          "look forward to + -ing",
+          "be interested in + -ing"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can talk about preferences and plans"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "would-like",
+          "relationship": "grammar_family",
+          "notes": "'would like' + to-infinitive vs. 'like' + -ing."
+        },
+        {
+          "structure_id": "used-to",
+          "relationship": "grammar_family",
+          "notes": "'used to go' (infinitive) vs. 'be used to going' (-ing) — classic confusion pair."
+        },
+        {
+          "structure_id": "prepositions",
+          "relationship": "grammar_family",
+          "notes": "After a preposition the verb takes -ing: interested in learning."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "patterns_with_to_and_-ing"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "questions",
+      "name": "Questions (Wh- & Yes/No)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Questions; Wh-questions (A1/A2)"
+      },
+      "overview": {
+        "short_description": "Forming yes/no and wh- questions with auxiliaries and question words.",
+        "examples": [
+          "Do you like coffee?",
+          "Where do you live?"
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "(Wh-) + auxiliary + subject + base verb",
+          "example": "What do you want?"
+        },
+        "negative": {
+          "pattern": "Don't/Doesn't + subject + base verb?",
+          "example": "Don't you agree?"
+        },
+        "question": {
+          "pattern": "Auxiliary + subject + base verb? | Wh- + auxiliary + subject + verb?",
+          "example": "Are you ready? / Where are you?"
+        },
+        "notes": "Use do/does/did as auxiliaries in the present and past simple."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "asking-clarification",
+          "function_name": "Asking for Clarification",
+          "description": "Request information.",
+          "example": "What does this word mean?"
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "Wh- + do/does + subject + verb",
+          "auxiliary + subject + verb"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can ask and answer simple questions"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "verb-to-be",
+          "relationship": "pedagogical_sequence",
+          "notes": "Questions with 'be' invert directly (Are you…?) — the entry point before do-support."
+        },
+        {
+          "structure_id": "question-tags",
+          "relationship": "grammar_family",
+          "notes": "Tags reuse the same auxiliary system in miniature."
+        },
+        {
+          "structure_id": "reported-speech",
+          "relationship": "grammar_family",
+          "notes": "Reported questions lose the inversion."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "interrogatives",
+        "wh-",
+        "yesno",
+        "questions__alternatives"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "imperatives",
+      "name": "Imperatives",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Imperatives (+/-) (A1)"
+      },
+      "overview": {
+        "short_description": "Used to give instructions, orders, directions, and invitations.",
+        "examples": [
+          "Open the door.",
+          "Don't worry."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Base verb (+ object)",
+          "example": "Sit down."
+        },
+        "negative": {
+          "pattern": "Don't + base verb",
+          "example": "Don't touch that."
+        },
+        "question": {
+          "pattern": "(imperatives are not questions)",
+          "example": "—"
+        },
+        "notes": "Add 'please' for politeness; 'Let's + base verb' for suggestions."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "giving-instructions",
+          "function_name": "Giving Instructions / Directions",
+          "description": "Tell someone what to do.",
+          "example": "Turn left at the corner."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "base verb + object",
+          "Don't + base verb",
+          "Let's + base verb"
+        ],
+        "collocations": [],
+        "discourse_markers": [
+          "first",
+          "then",
+          "next"
+        ]
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can give simple instructions and directions"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "modals-obligation",
+          "relationship": "grammar_family",
+          "notes": "'You must/should…' as softer alternatives to a direct command."
+        },
+        {
+          "structure_id": "questions",
+          "relationship": "grammar_family",
+          "notes": "'Can/Could you…?' turns a command into a polite request."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "imperatives"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "phrasal-verbs",
+      "name": "Phrasal Verbs",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Phrasal verbs - common / extended (A2–C1)"
+      },
+      "overview": {
+        "short_description": "Verb + particle combinations whose meaning is often idiomatic.",
+        "examples": [
+          "Please turn off the light.",
+          "I get on well with my colleagues."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Verb + particle (+ object); separable verbs can split",
+          "example": "turn it off / look after the children"
+        },
+        "negative": {
+          "pattern": "don't + phrasal verb",
+          "example": "don't give up"
+        },
+        "question": {
+          "pattern": "Auxiliary + subject + phrasal verb?",
+          "example": "Did you find out?"
+        },
+        "notes": "Some are separable (turn it off), some inseparable (look after them)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-habits-and-routines",
+          "function_name": "Describing habits and routines",
+          "description": "Talk about everyday actions.",
+          "example": "I get up at seven and set off at eight."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "verb + up/off/out/on",
+          "verb + object + particle"
+        ],
+        "collocations": [
+          "find out",
+          "give up",
+          "look after",
+          "carry on"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "C1"
+      },
+      "related_gse_objectives": [
+        "Can use common phrasal verbs in everyday contexts"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "prepositions",
+          "relationship": "grammar_family",
+          "notes": "Particle vs. preposition: 'look up the word' vs. 'look at the word'."
+        },
+        {
+          "structure_id": "pronouns",
+          "relationship": "grammar_family",
+          "notes": "Object pronouns split separable verbs: pick it up, not *pick up it."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "phrasal",
+        "phrasal-prepositional"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "adverbs-of-frequency",
+      "name": "Adverbs of Frequency",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Adverbs of frequency (A1/A2)"
+      },
+      "overview": {
+        "short_description": "Show how often something happens (always, usually, sometimes, never).",
+        "examples": [
+          "I always have breakfast.",
+          "She is never late."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + adverb + main verb (but after 'be')",
+          "example": "I usually walk / She is usually busy"
+        },
+        "negative": {
+          "pattern": "Subject + don't + usually + verb",
+          "example": "I don't usually drive"
+        },
+        "question": {
+          "pattern": "How often + do + subject + verb?",
+          "example": "How often do you exercise?"
+        },
+        "notes": "Frequency adverbs go before the main verb but after 'be'."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-habits-and-routines",
+          "function_name": "Describing habits and routines",
+          "description": "Say how often you do things.",
+          "example": "I sometimes work at weekends."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "always",
+          "usually",
+          "often",
+          "sometimes",
+          "rarely",
+          "never"
+        ],
+        "common_chunks": [
+          "subject + frequency adverb + verb"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can describe how often they do things"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "present-simple",
+          "relationship": "pedagogical_sequence",
+          "notes": "Taught together with the present simple for routines."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "adverbs_and_adverb_phrases_types_and_meanings",
+        "adverbs__position"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "verb-to-be",
+      "name": "The Verb 'to be'",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: To be, including questions and negatives (A1)"
+      },
+      "overview": {
+        "short_description": "The verb 'be' for identity, description, age, and location.",
+        "examples": [
+          "I am a teacher.",
+          "They are at home."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + am/is/are",
+          "example": "She is happy"
+        },
+        "negative": {
+          "pattern": "Subject + am/is/are + not",
+          "example": "She isn't happy"
+        },
+        "question": {
+          "pattern": "Am/Is/Are + subject?",
+          "example": "Are you happy?"
+        },
+        "notes": "Contractions: I'm, you're, isn't, aren't."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "giving-personal-information",
+          "function_name": "Giving personal information",
+          "description": "State name, age, job, origin.",
+          "example": "I am from Spain."
+        },
+        {
+          "function_id": "describing-things",
+          "function_name": "Describing things",
+          "description": "Describe states and qualities.",
+          "example": "The box is empty."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "Subject + be + adjective/noun"
+        ],
+        "collocations": [
+          "be from",
+          "be interested in"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can give basic personal information"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "present-simple",
+          "relationship": "grammar_family",
+          "notes": "'be' vs. ordinary present-simple verbs."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "linking",
+        "expressions_with_be"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed",
+      "egp_cross_cutting": true
+    },
+    {
+      "id": "there-is-are",
+      "name": "There is / There are",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: There is/are (A1)"
+      },
+      "overview": {
+        "short_description": "Says that something exists or is present.",
+        "examples": [
+          "There is a book on the table.",
+          "There are two cafes nearby."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "There + is/are + noun",
+          "example": "There is a problem"
+        },
+        "negative": {
+          "pattern": "There + isn't/aren't + noun",
+          "example": "There aren't any seats"
+        },
+        "question": {
+          "pattern": "Is/Are there + noun?",
+          "example": "Is there a bank near here?"
+        },
+        "notes": "'is' for singular/uncountable, 'are' for plural."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-places",
+          "function_name": "Describing places",
+          "description": "Say what a place contains.",
+          "example": "There are many shops in the city."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "There is/are + (a/some/many) + noun"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can describe what is in a place"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "quantifiers",
+          "relationship": "pedagogical_sequence",
+          "notes": "Often taught with some/any and much/many."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "there_isare"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "pronouns",
+      "name": "Personal Pronouns",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Pronouns - simple, personal (A1)"
+      },
+      "overview": {
+        "short_description": "Subject and object pronouns that replace nouns.",
+        "examples": [
+          "She likes him.",
+          "We saw them yesterday."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject (I/you/he...) + verb + object (me/you/him...)",
+          "example": "He called me"
+        },
+        "negative": {
+          "pattern": "(negation falls on the verb)",
+          "example": "They don't know us"
+        },
+        "question": {
+          "pattern": "(used within questions)",
+          "example": "Did you see her?"
+        },
+        "notes": "Subject: I/you/he/she/it/we/they; object: me/you/him/her/it/us/them."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "giving-personal-information",
+          "function_name": "Giving personal information",
+          "description": "Refer to people without repeating names.",
+          "example": "This is my sister; she is a doctor."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A1"
+      },
+      "related_gse_objectives": [
+        "Can refer to people using pronouns"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "possessives",
+          "relationship": "grammar_family",
+          "notes": "Possessive adjectives/pronouns relate to personal pronouns."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "subject_object",
+        "pronouns__indefinite_thing_one_body_etc",
+        "pronouns__reflexive",
+        "pronouns__substitution_one_ones_none",
+        "pronouns__generic_use",
+        "pronouns__reciprocal"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "possessives",
+      "name": "Possessives ('s & possessive adjectives)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Possessive 's, possessive adjectives (A1)"
+      },
+      "overview": {
+        "short_description": "Shows belonging with 's and my/your/his/her etc.",
+        "examples": [
+          "This is Maria's car.",
+          "That is my book."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Noun + 's | possessive adjective + noun",
+          "example": "the dog's tail / her bag"
+        },
+        "negative": {
+          "pattern": "(N/A)",
+          "example": "-"
+        },
+        "question": {
+          "pattern": "Whose + noun?",
+          "example": "Whose phone is this?"
+        },
+        "notes": "Plural nouns take s' (the students' room)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "giving-personal-information",
+          "function_name": "Giving personal information",
+          "description": "Talk about family and belongings.",
+          "example": "My brother's name is Tom."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "noun + 's",
+          "possessive adjective + noun"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can express possession"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "pronouns",
+          "relationship": "grammar_family",
+          "notes": "Possessive adjectives pair with personal pronouns."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "possessives",
+        "possessive"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "prepositions",
+      "name": "Prepositions (place, time, movement)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Prepositions of place/time, including in/on/at (A1)"
+      },
+      "overview": {
+        "short_description": "Show place, time, and direction (in, on, at, to, from).",
+        "examples": [
+          "The keys are on the table.",
+          "We meet at 9 on Monday."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "preposition + noun phrase",
+          "example": "in the morning / at home"
+        },
+        "negative": {
+          "pattern": "(N/A)",
+          "example": "-"
+        },
+        "question": {
+          "pattern": "Where/When ...?",
+          "example": "Where is it? In the box."
+        },
+        "notes": "Time: at (clock), on (days), in (months/years)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-places",
+          "function_name": "Describing places",
+          "description": "Locate things and events.",
+          "example": "The bank is next to the station."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "at 6",
+          "on Monday",
+          "in July"
+        ],
+        "common_chunks": [],
+        "collocations": [
+          "at home",
+          "on time",
+          "in the end"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can say where and when things are"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "there-is-are",
+          "relationship": "pedagogical_sequence",
+          "notes": "Used together to describe places."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "prepositional",
+        "prepostions"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "articles",
+      "name": "Articles (a / an / the)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Articles with countable and uncountable nouns (A2)"
+      },
+      "overview": {
+        "short_description": "Definite and indefinite reference with nouns.",
+        "examples": [
+          "I saw a dog. The dog was friendly.",
+          "Water is essential."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "a/an + singular countable | the + specific | zero article + general",
+          "example": "a book / the sun / dogs bark"
+        },
+        "negative": {
+          "pattern": "(N/A)",
+          "example": "-"
+        },
+        "question": {
+          "pattern": "(used within phrases)",
+          "example": "Is there a problem?"
+        },
+        "notes": "'a/an' = first mention; 'the' = already known/unique."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-things",
+          "function_name": "Describing things",
+          "description": "Refer to general vs. specific things.",
+          "example": "I need a pen. The pen on your desk is fine."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "a/an + noun",
+          "the + noun"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B2"
+      },
+      "related_gse_objectives": [
+        "Can use articles appropriately"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "quantifiers",
+          "relationship": "grammar_family",
+          "notes": "Articles and quantifiers both determine nouns."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "articles"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "quantifiers",
+      "name": "Quantifiers (much/many, some/any)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: How much/how many; much/many; countable & uncountable (A1/A2)"
+      },
+      "overview": {
+        "short_description": "Express quantity with countable and uncountable nouns.",
+        "examples": [
+          "How many books do you have?",
+          "There isn't much time."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "some/many/a lot of + noun",
+          "example": "some milk / many people"
+        },
+        "negative": {
+          "pattern": "not much/many/any + noun",
+          "example": "I don't have any money"
+        },
+        "question": {
+          "pattern": "How much/many + noun?",
+          "example": "How much sugar?"
+        },
+        "notes": "many/few = countable; much/little = uncountable; some (positive), any (questions/negatives)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "understanding-and-using-numbers",
+          "function_name": "Understanding and using numbers",
+          "description": "Talk about amounts.",
+          "example": "There are a few apples left."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "how much/many + noun",
+          "a lot of + noun"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can talk about quantities"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "articles",
+          "relationship": "grammar_family",
+          "notes": "Both determine the noun phrase."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "quantity",
+        "pronouns__quantity"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "demonstratives",
+      "name": "Demonstratives (this/that/these/those)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Adjectives - common and demonstrative (A1)"
+      },
+      "overview": {
+        "short_description": "Point to things by distance and number.",
+        "examples": [
+          "This is my seat.",
+          "Those are expensive."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "this/that + noun | these/those + noun",
+          "example": "this book / those cars"
+        },
+        "negative": {
+          "pattern": "(N/A)",
+          "example": "-"
+        },
+        "question": {
+          "pattern": "What is this/that?",
+          "example": "What are these?"
+        },
+        "notes": "this/these = near; that/those = far."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-things",
+          "function_name": "Describing things",
+          "description": "Identify nearby/distant items.",
+          "example": "Can I try this jacket on?"
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "this/that + noun",
+          "these/those + noun"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can point out specific things"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "articles",
+          "relationship": "grammar_family",
+          "notes": "Demonstratives are determiners like articles."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "demonstratives"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "intensifiers",
+      "name": "Intensifiers (very, too, enough)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Intensifiers; too/enough (A1/B1)"
+      },
+      "overview": {
+        "short_description": "Strengthen or qualify adjectives and adverbs.",
+        "examples": [
+          "It is very cold.",
+          "This is too difficult."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "very/really/too + adjective | adjective + enough",
+          "example": "very tired / good enough"
+        },
+        "negative": {
+          "pattern": "not + adjective + enough",
+          "example": "not warm enough"
+        },
+        "question": {
+          "pattern": "Is it too ...?",
+          "example": "Is it too expensive?"
+        },
+        "notes": "'too' = more than wanted; 'enough' = sufficient."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-things",
+          "function_name": "Describing things",
+          "description": "Add degree to descriptions.",
+          "example": "The coffee is too hot to drink."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "very/too + adjective",
+          "adjective + enough"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can qualify descriptions"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "comparatives-superlatives",
+          "relationship": "grammar_family",
+          "notes": "Both modify degree of adjectives."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "modifying",
+        "adverbs_as_modifiers",
+        "adverbs_and_adverb_phrases_types_and_meanings"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed",
+      "egp_cross_cutting": true
+    },
+    {
+      "id": "modals-ability",
+      "name": "Modals of Ability (can / could)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Modals - can/can't/could (A1/A2)"
+      },
+      "overview": {
+        "short_description": "Express present and past ability and possibility.",
+        "examples": [
+          "I can swim.",
+          "She could read at four."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + can/could + base verb",
+          "example": "He can drive"
+        },
+        "negative": {
+          "pattern": "Subject + can't/couldn't + base verb",
+          "example": "I can't cook"
+        },
+        "question": {
+          "pattern": "Can/Could + subject + base verb?",
+          "example": "Can you help?"
+        },
+        "notes": "'could' = past ability or polite requests."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "making-request",
+          "function_name": "Making a Request / Offering",
+          "description": "Ask politely with can/could.",
+          "example": "Can you open the window?"
+        },
+        {
+          "function_id": "describing-habits-and-routines",
+          "function_name": "Describing habits and routines",
+          "description": "State what you are able to do.",
+          "example": "I can speak three languages."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "can/could + base verb"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can express ability"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "modals-obligation",
+          "relationship": "grammar_family",
+          "notes": "Same modal form family."
+        },
+        {
+          "structure_id": "modals-deduction",
+          "relationship": "grammar_family",
+          "notes": "'could' also expresses possibility."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "can",
+        "could",
+        "shall",
+        "would",
+        "modality__shall"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "would-like",
+      "name": "'Would like' (I'd like)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: I'd like (A1)"
+      },
+      "overview": {
+        "short_description": "A polite way to express wants and offers.",
+        "examples": [
+          "I'd like a coffee, please.",
+          "Would you like to sit down?"
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + would like + noun / to + verb",
+          "example": "I'd like to go"
+        },
+        "negative": {
+          "pattern": "Subject + wouldn't like",
+          "example": "I wouldn't like that"
+        },
+        "question": {
+          "pattern": "Would + subject + like ...?",
+          "example": "Would you like tea?"
+        },
+        "notes": "More polite than 'want'."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "making-request",
+          "function_name": "Making a Request / Offering",
+          "description": "Order, request, and offer politely.",
+          "example": "I'd like the bill, please."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "would like + noun",
+          "would like to + verb"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A1",
+        "common_extension": "A2"
+      },
+      "related_gse_objectives": [
+        "Can make polite requests and offers"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "modals-ability",
+          "relationship": "pedagogical_sequence",
+          "notes": "Both used for polite requests."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "would"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "adverbial-phrases",
+      "name": "Adverbial Phrases & Word Order",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Adverbial phrases of time, place and frequency, incl. word order (A2)"
+      },
+      "overview": {
+        "short_description": "Phrases of time, place, and frequency, and where they go.",
+        "examples": [
+          "I go to the gym twice a week.",
+          "She arrived at the office early this morning."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + verb + (object) + manner + place + time",
+          "example": "They played well at home yesterday"
+        },
+        "negative": {
+          "pattern": "(negation on the verb)",
+          "example": "We don't go there often"
+        },
+        "question": {
+          "pattern": "How often / Where / When ...?",
+          "example": "How often do you travel?"
+        },
+        "notes": "Typical order: manner - place - time."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-habits-and-routines",
+          "function_name": "Describing habits and routines",
+          "description": "Say when, where, and how often.",
+          "example": "I usually study at home in the evening."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "every day",
+          "twice a week",
+          "at the weekend"
+        ],
+        "common_chunks": [
+          "manner + place + time"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "A2",
+        "common_extension": "B1"
+      },
+      "related_gse_objectives": [
+        "Can position adverbials correctly"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "adverbs-of-frequency",
+          "relationship": "grammar_family",
+          "notes": "Frequency adverbs are part of adverbial phrasing."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "adverbs__position",
+        "position",
+        "adverbs__adverb_phrases_form"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed_imperfect"
+    },
+    {
+      "id": "adverbs",
+      "name": "Adverbs (manner & comment)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Adverbs; adjectives and adverbs (B1/B2)"
+      },
+      "overview": {
+        "short_description": "Describe how actions happen and comment on statements.",
+        "examples": [
+          "She speaks clearly.",
+          "Fortunately, it didn't rain."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "verb + adverb (manner) | comment adverb + clause",
+          "example": "ran quickly / Obviously, ..."
+        },
+        "negative": {
+          "pattern": "(negation on the verb)",
+          "example": "He doesn't drive carefully"
+        },
+        "question": {
+          "pattern": "How + auxiliary + subject + verb?",
+          "example": "How did she sing?"
+        },
+        "notes": "Most manner adverbs add -ly; irregulars: well, fast, hard."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-things",
+          "function_name": "Describing things",
+          "description": "Describe manner and add stance.",
+          "example": "The team performed brilliantly."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "verb + adverb",
+          "comment adverb + clause"
+        ],
+        "collocations": [
+          "work hard",
+          "run fast"
+        ],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "C1"
+      },
+      "related_gse_objectives": [
+        "Can describe how actions are done"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "comparatives-superlatives",
+          "relationship": "grammar_family",
+          "notes": "Adverbs also have comparative forms."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "adverbs_and_adverb_phrases_types_and_meanings",
+        "adverbs_as_modifiers",
+        "modality__adverbs"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed",
+      "egp_cross_cutting": true
+    },
+    {
+      "id": "question-tags",
+      "name": "Question Tags",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Complex question tags (B1)"
+      },
+      "overview": {
+        "short_description": "Short tags added to check or confirm information.",
+        "examples": [
+          "It's cold today, isn't it?",
+          "You don't smoke, do you?"
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Positive statement, + negative tag",
+          "example": "She's here, isn't she?"
+        },
+        "negative": {
+          "pattern": "Negative statement, + positive tag",
+          "example": "You can't swim, can you?"
+        },
+        "question": {
+          "pattern": "Statement + auxiliary + pronoun?",
+          "example": "They left, didn't they?"
+        },
+        "notes": "Tag uses the auxiliary of the statement and opposite polarity."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "checking-understanding",
+          "function_name": "Checking understanding",
+          "description": "Confirm or invite agreement.",
+          "example": "We've met before, haven't we?"
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "statement, + tag?"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "B2"
+      },
+      "related_gse_objectives": [
+        "Can check information with question tags"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "questions",
+          "relationship": "grammar_family",
+          "notes": "Tags reuse question auxiliaries."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "tags"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "future-continuous",
+      "name": "Future Continuous",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Future continuous (B1)"
+      },
+      "overview": {
+        "short_description": "An action in progress at a future time.",
+        "examples": [
+          "This time tomorrow I'll be flying to Rome.",
+          "Don't call at 8 - we'll be eating."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + will be + verb-ing",
+          "example": "I'll be working"
+        },
+        "negative": {
+          "pattern": "Subject + won't be + verb-ing",
+          "example": "I won't be waiting"
+        },
+        "question": {
+          "pattern": "Will + subject + be + verb-ing?",
+          "example": "Will you be using the car?"
+        },
+        "notes": "Often with a specific future time."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-hopes-and-plans",
+          "function_name": "Describing hopes and plans",
+          "description": "Talk about future activities in progress.",
+          "example": "I'll be studying all weekend."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "this time tomorrow",
+          "at 8 tonight"
+        ],
+        "common_chunks": [
+          "will be + verb-ing"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "B2"
+      },
+      "related_gse_objectives": [
+        "Can describe future actions in progress"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "future-will-going-to",
+          "relationship": "grammar_family",
+          "notes": "Future forms family."
+        },
+        {
+          "structure_id": "future-perfect",
+          "relationship": "grammar_family",
+          "notes": "Future aspect contrast."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "future_continuous"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "future-perfect",
+      "name": "Future Perfect",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Future perfect (B2)"
+      },
+      "overview": {
+        "short_description": "An action completed before a point in the future.",
+        "examples": [
+          "By 2030 they will have finished the bridge.",
+          "I'll have left by then."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + will have + past participle",
+          "example": "I'll have finished"
+        },
+        "negative": {
+          "pattern": "Subject + won't have + past participle",
+          "example": "They won't have arrived"
+        },
+        "question": {
+          "pattern": "Will + subject + have + past participle?",
+          "example": "Will you have eaten?"
+        },
+        "notes": "Usually with 'by + future time'."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-hopes-and-plans",
+          "function_name": "Describing hopes and plans",
+          "description": "Project completion in the future.",
+          "example": "By June I will have graduated."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "by 2030",
+          "by then"
+        ],
+        "common_chunks": [
+          "will have + past participle"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B2",
+        "common_extension": "C1"
+      },
+      "related_gse_objectives": [
+        "Can describe completion relative to a future point"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "future-continuous",
+          "relationship": "grammar_family",
+          "notes": "Future aspect contrast."
+        },
+        {
+          "structure_id": "past-perfect",
+          "relationship": "grammar_family",
+          "notes": "Perfect aspect across time frames."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "future_perfect_simple",
+        "future__future_perfect_continuous"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "past-perfect-continuous",
+      "name": "Past Perfect Continuous",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Past perfect continuous (B2)"
+      },
+      "overview": {
+        "short_description": "Emphasises the duration of an activity before a past point.",
+        "examples": [
+          "She had been working there for years before she left.",
+          "They were tired because they had been running."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + had been + verb-ing",
+          "example": "I had been waiting"
+        },
+        "negative": {
+          "pattern": "Subject + hadn't been + verb-ing",
+          "example": "He hadn't been sleeping"
+        },
+        "question": {
+          "pattern": "Had + subject + been + verb-ing?",
+          "example": "Had you been working?"
+        },
+        "notes": "Often with for/since + past reference."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-past-experience",
+          "function_name": "Describing Past Experience",
+          "description": "Stress how long something had lasted.",
+          "example": "By noon, they had been driving for six hours."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [
+          "for",
+          "since",
+          "before that"
+        ],
+        "common_chunks": [
+          "had been + verb-ing"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B2",
+        "common_extension": "C1"
+      },
+      "related_gse_objectives": [
+        "Can emphasise duration of earlier past activities"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "past-perfect",
+          "relationship": "grammar_family",
+          "notes": "Perfect vs. perfect-continuous in the past."
+        },
+        {
+          "structure_id": "present-perfect-continuous",
+          "relationship": "grammar_family",
+          "notes": "Same aspect in present."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "past_perfect_continuous"
+      ],
+      "egp_bundle": false,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "used-to",
+      "name": "'used to' & 'would' (past habits)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Would expressing habits in the past (B2)"
+      },
+      "overview": {
+        "short_description": "Describe repeated past habits and former states.",
+        "examples": [
+          "I used to play football every weekend.",
+          "We would go to the seaside each summer."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + used to / would + base verb",
+          "example": "She used to smoke"
+        },
+        "negative": {
+          "pattern": "Subject + didn't use to + base verb",
+          "example": "I didn't use to like it"
+        },
+        "question": {
+          "pattern": "Did + subject + use to + base verb?",
+          "example": "Did you use to live here?"
+        },
+        "notes": "'would' for repeated actions, not past states (use 'used to' for states)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-past-experience",
+          "function_name": "Describing Past Experience",
+          "description": "Talk about how things were.",
+          "example": "There used to be a cinema here."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "used to + base verb",
+          "would + base verb"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B1",
+        "common_extension": "B2"
+      },
+      "related_gse_objectives": [
+        "Can describe past habits and former states"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "past-simple",
+          "relationship": "grammar_family",
+          "notes": "Habitual vs. single past events."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "used_to",
+        "would"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "wish",
+      "name": "'wish' / 'if only'",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Wish; Wish/if only regrets (B2/C1)"
+      },
+      "overview": {
+        "short_description": "Express regrets and unreal desires about present and past.",
+        "examples": [
+          "I wish I had more time.",
+          "If only I had studied harder."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "wish + past simple (present) | wish + past perfect (past)",
+          "example": "I wish I knew / I wish I had known"
+        },
+        "negative": {
+          "pattern": "wish + ... + didn't / hadn't",
+          "example": "I wish it wasn't raining"
+        },
+        "question": {
+          "pattern": "(rare as a question)",
+          "example": "-"
+        },
+        "notes": "'wish + would' for annoyance about others' habits."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "describing-feelings-and-emotions",
+          "function_name": "Describing feelings and emotions",
+          "description": "Express regret and longing.",
+          "example": "I wish I could be there."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "wish + past simple",
+          "if only + past perfect"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B2",
+        "common_extension": "C1"
+      },
+      "related_gse_objectives": [
+        "Can express regrets and wishes"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "conditionals-unreal",
+          "relationship": "grammar_family",
+          "notes": "Both use unreal/backshifted tenses."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "past_simple",
+        "past_perfect_simple",
+        "would",
+        "could"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed",
+      "egp_cross_cutting": true
+    },
+    {
+      "id": "modals-past",
+      "name": "Modals in the Past (should have / might have)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Modals - should have/might have; modals in the past (B1/C1)"
+      },
+      "overview": {
+        "short_description": "Comment on, criticise, or speculate about past events.",
+        "examples": [
+          "You should have called me.",
+          "She might have missed the train."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Subject + modal + have + past participle",
+          "example": "I should have gone"
+        },
+        "negative": {
+          "pattern": "Subject + modal + not have + past participle",
+          "example": "You shouldn't have worried"
+        },
+        "question": {
+          "pattern": "Modal + subject + have + past participle?",
+          "example": "Could it have been worse?"
+        },
+        "notes": "should have (criticism/regret), might/could have (past possibility), must have (past deduction)."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "expressing-deduction",
+          "function_name": "Expressing Deduction / Certainty",
+          "description": "Infer about the past.",
+          "example": "The ground is wet - it must have rained."
+        },
+        {
+          "function_id": "expressing-advice",
+          "function_name": "Expressing Advice",
+          "description": "Comment on past decisions.",
+          "example": "You should have booked earlier."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "modal + have + past participle"
+        ],
+        "collocations": [],
+        "discourse_markers": []
+      },
+      "cefr_context": {
+        "typically_introduced": "B2",
+        "common_extension": "C1"
+      },
+      "related_gse_objectives": [
+        "Can speculate and comment on past events"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "modals-deduction",
+          "relationship": "grammar_family",
+          "notes": "Deduction extended to the past."
+        },
+        {
+          "structure_id": "conditionals-unreal",
+          "relationship": "pedagogical_sequence",
+          "notes": "Third conditional uses similar forms."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "should",
+        "might",
+        "could",
+        "must",
+        "ought",
+        "can",
+        "may",
+        "would",
+        "shall"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed"
+    },
+    {
+      "id": "inversion",
+      "name": "Inversion (negative adverbials)",
+      "metadata": {
+        "eaquals_ref": "Grammar Inventory: Inversion with negative adverbials (C1)"
+      },
+      "overview": {
+        "short_description": "Auxiliary-before-subject order after fronted negative adverbials for emphasis.",
+        "examples": [
+          "Never have I seen such a mess.",
+          "Not only did she win, but she also broke the record."
+        ]
+      },
+      "formation": {
+        "positive": {
+          "pattern": "Negative adverbial + auxiliary + subject + verb",
+          "example": "Rarely do we agree"
+        },
+        "negative": {
+          "pattern": "(the adverbial carries the negation)",
+          "example": "Under no circumstances should you leave"
+        },
+        "question": {
+          "pattern": "(emphatic statement, not a question)",
+          "example": "-"
+        },
+        "notes": "Triggers: never, rarely, seldom, not only, no sooner, little, only then."
+      },
+      "communicative_functions": [
+        {
+          "function_id": "emphasizing-a-point-feeling-issue",
+          "function_name": "Emphasizing a point, feeling, issue",
+          "description": "Add emphasis in formal speech/writing.",
+          "example": "Not until later did we understand."
+        }
+      ],
+      "typical_language_patterns": {
+        "time_expressions": [],
+        "common_chunks": [
+          "Negative adverbial + auxiliary + subject"
+        ],
+        "collocations": [],
+        "discourse_markers": [
+          "never",
+          "rarely",
+          "not only",
+          "no sooner"
+        ]
+      },
+      "cefr_context": {
+        "typically_introduced": "C1",
+        "common_extension": "C2"
+      },
+      "related_gse_objectives": [
+        "Can use inversion for emphasis"
+      ],
+      "related_structures": [
+        {
+          "structure_id": "questions",
+          "relationship": "grammar_family",
+          "notes": "Same auxiliary–subject inversion mechanism as questions."
+        },
+        {
+          "structure_id": "conditionals-unreal",
+          "relationship": "grammar_family",
+          "notes": "Inverted conditionals: 'Had I known…' = 'If I had known…'."
+        },
+        {
+          "structure_id": "adverbial-phrases",
+          "relationship": "grammar_family",
+          "notes": "Fronted negative adverbials (Never/Rarely…) are what trigger the inversion."
+        }
+      ],
+      "sources": {
+        "eaquals": "EAQUALS Grammar Inventory",
+        "cefr": "CEFR Framework",
+        "examples": "corpus-verified"
+      },
+      "egp_families": [
+        "past_perfect_simple",
+        "position",
+        "negation",
+        "conditional",
+        "coordinated"
+      ],
+      "egp_bundle": true,
+      "egp_key_status": "keyed",
+      "egp_cross_cutting": true
+    }
+  ]
+}
