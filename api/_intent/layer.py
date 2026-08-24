@@ -824,12 +824,42 @@ def _coverage(result, decisions):
     score-eligible distinct content words / distinct content words written. A
     level built from half the sample is a level built from the half that
     happened to be spelled well, and that has to be visible.
+
+    Approved 24 Aug 2026 (three fixes, root cause confirmed by live repro
+    before this brief -- see docs/19):
+
+      1. `unresolved` is returned for DISPLAY as well as used internally for
+         the coverage fraction. The internal set stays keyed on `token` (the
+         normalised, matching identity -- that part was never wrong and must
+         not change). The returned list now maps each token back to the
+         written form (`raw`) carried on the same `written` records, the same
+         field `score.py`'s `_words()` already uses for the word-chip grid.
+      2. Clause (b) used to scan every distinct content word for an unmatched,
+         uncorrected one, regardless of whether `flag()` ever asked about it.
+         `decisions` is keyed on exactly the tokens `flag()` produced a
+         candidate for -- `_apply()`'s loop covers every item in `items`, so
+         `decisions` IS that candidate set, nothing further needs threading
+         through. A word the corrector already calls "known" (real word, just
+         outside the GSE list) never reaches `flag()` at all and now can't
+         land in `unresolved` with no review row to correspond to it.
+      3. `names` (confirmed proper nouns) was excluded from the coverage
+         fraction's numerator and denominator, but clause (b) had no matching
+         check -- a proper noun is unmatched and was never "corrected", so it
+         satisfied clause (b) regardless of being resolved. `names` now builds
+         before clause (b) runs, and clause (b) excludes it the same way the
+         fraction already does.
     """
     written = [r for r in result["original"]["distinct"]
                if not r.get("junk")]
     if not written:
         return {"coverage": None, "resolved": 0, "written": 0,
                 "indicative_only": True}
+    # Written form for display, keyed the same way `unresolved` is -- built
+    # once, from the same records `eligible`/`denom` already read below.
+    raw_of = {(r.get("token") or ""): (r.get("raw") or r.get("token") or "")
+              for r in written}
+    names = {d["original"] for d in decisions.values()
+             if d["answer"] == "proper_noun"}
     unresolved = {d["original"] for d in decisions.values()
                   if d["answer"] in ("unrecoverable",) or
                   (d["answer"] == "replacement" and not d["accepted"])}
@@ -840,11 +870,14 @@ def _coverage(result, decisions):
     corrected |= {d["original"] for d in decisions.values() if d.get("corrected")}
     # NEVER RESOLVED: no match of its own, and no correction to give it one.
     # Coverage's own definition is score-eligible words, and a word the scorer
-    # never saw is not one.
+    # never saw is not one. Restricted to words `flag()` actually put forward
+    # (`in decisions`) and not a confirmed name (`not in names`) -- a word
+    # nobody was ever asked about, or one already settled as a proper noun, is
+    # not "awaiting review".
     unresolved |= {(r.get("token") or "") for r in written
-                   if not r.get("matched") and (r.get("token") or "") not in corrected}
-    names = {d["original"] for d in decisions.values()
-             if d["answer"] == "proper_noun"}
+                   if not r.get("matched") and (r.get("token") or "") not in corrected
+                   and (r.get("token") or "") in decisions
+                   and (r.get("token") or "") not in names}
     eligible = [r for r in written
                 if (r.get("token") or "") not in unresolved
                 and (r.get("token") or "") not in names]
@@ -854,7 +887,7 @@ def _coverage(result, decisions):
         "coverage": cov,
         "resolved": len(eligible),
         "written": len(denom),
-        "unresolved": sorted(unresolved),
+        "unresolved": sorted(raw_of.get(tok, tok) for tok in unresolved),
         # Advisory, not a gate: the level is still reported, but a level built
         # from a fraction of the sample must say so next to itself.
         "indicative_only": bool(cov is not None and cov < 0.80),

@@ -293,6 +293,17 @@ def summarise(result):
         })
     sp = result.get("spelling_score") or {}
     vf = result.get("vocabulary_score") or {}
+    # Same selection rule _assessed() uses for the rest of the card: intent
+    # when scoring was assigned, lenient otherwise. Previously hardcoded to
+    # lenient unconditionally, so the Words tile's "N distinct content words"
+    # could show a different reading's count than the "Repetition stripped"
+    # toggle sitting right below it -- confirmed live on a sample containing a
+    # merged multi-word phrase, where the two readings' distinct counts
+    # genuinely differ (docs/19, Issue 3). Deliberately independent of
+    # `result["valid"]`: this is a descriptive count, not a score, and is
+    # shown for invalid/junk scripts the same as every other field here.
+    distinct = (len(prof["distinct"]) if (prof and prof["score"]["assigned"])
+               else t["lenient"]["distinct"])
     return {
         # The two scores, both 0-100, both from the intent reading, deliberately
         # independent of each other. Scalars here; the arithmetic is in detail().
@@ -338,7 +349,7 @@ def summarise(result):
         "unmatched_written": t["original"]["unmatched"],
         "unmatched_corrected": t["lenient"]["unmatched"],
         "corrections": t["lenient"]["corrections"],
-        "distinct": t["lenient"]["distinct"],
+        "distinct": distinct,
     }
 
 

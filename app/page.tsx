@@ -1614,8 +1614,36 @@ function VocabularyProfileTab({
 
   const intendedText = d.corrected_sample ?? d.corrected_text;
 
+  // A scored sample as data, not as a rendered screen -- so a count can be
+  // checked by reading the actual object instead of reading it off pixels.
+  // `d` is exported as-is, unfiltered: it is the exact object every component
+  // on this tab reads from, so the file matches the screen by construction
+  // rather than by a second, hand-maintained shaping step that could drift
+  // from it.
+  const exportJson = () => {
+    const words = d.text.trim().split(/\s+/).slice(0, 5).join(" ")
+      .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const name = `${d.id || "sample"}${words ? "-" + words : ""}-${stamp}.json`;
+    const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <span style={{ fontSize: 12, color: C.ink3 }}>
+          Every count on this tab, as data rather than pixels
+        </span>
+        <button style={S.btn2} onClick={exportJson}>Export JSON</button>
+      </div>
       <Collapsible
         title="Vocabulary"
         open={openVocab}
