@@ -706,6 +706,16 @@ def spelling_profile(result, decisions):
     One category per distinct content form the script actually used, counting
     the engine's own repairs as well as the model's verdicts. Junk is excluded:
     noise is not a spelling error.
+
+    PROPER NOUNS ARE EXCLUDED FROM THE POPULATION, not just from the error
+    count. `attempts()` (which feeds the scored spelling index, doc 10)
+    already does this -- `or w in names: continue` removes the word entirely
+    rather than counting it as correct. This function used to count
+    `proper_noun` into `total` without excluding it from the "not correct"
+    error numerator either, so a script with confirmed names and zero real
+    spelling mistakes still reported a non-zero "carried an error" rate: a
+    name isn't "correct" as a category, so it was read as an error by the
+    (total - correct) formula. Approved 24 Aug 2026.
     """
     counts = {c: 0 for c in review.CATEGORIES}
     rows = []
@@ -743,7 +753,11 @@ def spelling_profile(result, decisions):
         if cat != "correct":
             rows.append({"word": w, "category": cat, "source": source})
 
-    total = sum(counts.values()) or 1
+    # The row for `proper_noun` is kept below -- a marker can still see which
+    # words were treated as names, and how many -- but names are removed from
+    # `total` itself, so neither the headline error rate nor any row's Share
+    # reports against a population that still includes them.
+    total = (sum(counts.values()) - counts["proper_noun"]) or 1
     profile = [{
         "category": c,
         "label": review.CATEGORY_LABEL[c],
