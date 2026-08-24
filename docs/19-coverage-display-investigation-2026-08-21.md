@@ -195,9 +195,91 @@ not a staleness bug, and not evidence that coverage is reading old data. The
 mismatch is that the coverage note's wording implies review status, when the
 field it's built from was never designed to track that.
 
+## Issue 3 — three "content word" counts, three different readings and shapes
+
+**Not one bug — three fields with near-identical labels, drawing from two
+different readings and two different levels of deduplication, none of it
+stated on screen.**
+
+### Where each number comes from
+
+| On screen | Field | Built at | What it counts |
+|---|---|---|---|
+| "N distinct content words" (Words tile subtext) | `d.distinct` | `score.py:341`, inside `summarise()` | `len(result["lenient"]["distinct"])` |
+| "Repetition stripped (N)" (toggle) | `d.views.distinct.length` | `score.py:399`, inside `detail()` | `len(_words(prof["distinct"]))`, `prof` = the **assessed** reading |
+| "Content words only (N)" (toggle) | `d.views.content.length` | `score.py:398` | `len(_words(prof["content_only"]))`, same `prof`, **not deduplicated** |
+
+`prof` comes from `_assessed()` (`score.py:345-358`): the intent reading if
+`result["intent"]["score"]["assigned"]`, otherwise lenient. `summarise()` is a
+separate function, called before `_assessed()` even runs, and its `distinct`
+field is hardcoded to `result["lenient"]` — **unconditionally**, regardless of
+which reading the rest of the screen ends up showing.
+
+### Are the headline and "Repetition stripped" meant to be the same number?
+
+They are describing the same *concept* — distinct content-word identities —
+but from two different token streams, and nothing on screen says so. The
+headline is always the lenient reading (deterministic correction only, no
+model). The toggle is the assessed reading (intent, when assigned) — which can
+differ from lenient in two ways:
+
+1. **A correction only the model made.** Lenient's deterministic corrector
+   abstains on some words the model resolves in context (e.g. `bote` staying
+   `bote` in lenient, resolving to `boat` in intent) — a straight one-for-one
+   swap, so it doesn't change the *count*, only which words appear in it.
+2. **Multi-word phrase merging**, added 21 Aug. `_merge_phrases()` runs only on
+   the intent stream, inside `_apply()` — never on lenient. A matched phrase
+   collapses two or more lenient-distinct entries into one intent-distinct
+   entry.
+
+**Confirmed live** — a sample containing `a lot` (twice) and `task force`
+once:
+
+```
+lenient distinct (14): [... 'force', ... 'lot', ... 'task', ...]
+intent  distinct (13): [... 'a lot', ... 'task force', ...]
+```
+
+`task force` alone collapses two lenient entries (`task`, `force`) into one
+(`task force`) — a genuine, reproducible −1. `a lot`'s two occurrences were
+already deduplicated to one entry on both sides, so it contributed no further
+shift here, but a script where `lot` and `a lot` compete with an *otherwise
+separate* existing `lot`-only usage could shift the count by more. The gap is
+real, reproducible, and grows with how much the intent reading's corrections
+and phrase merges diverge from lenient's — it is not a fixed offset and won't
+always be the same number session to session.
+
+### Is "Content words only (47)" a token count including repeats?
+
+Yes, confirmed directly from `_engine/views.py:68`:
+
+```python
+content = [r for r in records if not r["is_function_word"]]
+```
+
+`records` is the full per-token stream (`build_profile()`'s first loop, one
+record per token, `views.py:58-66`) — no deduplication happens here. Dedup
+only happens afterward, building `distinct` (`views.py:73-82`), which is a
+*different* list. So `content_only` counts every occurrence of every content
+word, repeats included; `distinct` counts each identity once. That is
+mechanically why "Content words only" is always ≥ "Repetition stripped" for
+the same reading — it's the same words, pre- and post-dedup, not two
+different definitions of "content word."
+
+### The root inconsistency
+
+Not that any one number is wrong — each is internally correct for what it
+literally computes. The inconsistency is that **`summarise()`'s `distinct`
+field never adopts the reading `_assessed()`/`detail()` chose**, so the Words
+tile can show a lenient-reading count sitting directly above a card whose
+every other figure — score, band, word chips — comes from the intent reading.
+The two are only guaranteed to agree when intent scoring wasn't assigned at
+all (lenient is used everywhere, by fallback), which is exactly the condition
+under which nobody would notice a divergence to begin with.
+
 ## Summary — what needs deciding, not what needs building
 
-Three separate, narrowly-scoped things, none built yet:
+Four separate, narrowly-scoped things, none built yet:
 
 1. **Issue 1** — `unresolved`'s display value should be each token's `raw` form,
    not its normalised `token`/`d["original"]` form. Filtering logic unchanged.
@@ -208,7 +290,16 @@ Three separate, narrowly-scoped things, none built yet:
 3. **Issue 2, Bug B** — `unresolved`'s clause (b) should apply the same `names`
    exclusion the fraction already applies, so a confirmed proper noun stops
    appearing in "awaiting review" once it's been confirmed.
+4. **Issue 3** — decide whether `summarise()`'s `distinct` field should switch
+   to the assessed reading (matching what the rest of the card shows), and
+   separately, whether the three toggle/tile labels should say which reading
+   and which level of deduplication each one is — "Repetition stripped" and
+   "Content words only" read as differing only by dedup, when they can also
+   differ from the headline by *which correction pass* produced the count.
 
-All three are inside `_coverage()`, protected code, same function as the
-Coverage/possessive fixes already approved on 20 Aug. None built here per the
+Issues 1, 2A and 2B are inside `_coverage()`, protected code, same function as
+the Coverage/possessive fixes already approved on 20 Aug. Issue 3's fix, if
+`summarise()` should switch readings, is in `api/score.py` — the unprotected
+integration layer — since `summarise()` and `_assessed()` both live there; no
+protected file needs to change for it. None of the four are built here per the
 brief's instruction to report first.
