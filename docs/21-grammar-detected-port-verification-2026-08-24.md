@@ -117,6 +117,11 @@ resolved divergence documented above, the same state `_engine`/`_intent`
 were in when they were protected. Recommend proceeding with protection
 unless told otherwise.
 
+**Confirmed protected.** Recorded in docs/22, a new living reference doc —
+the rule previously lived only inline in dated reports (docs/06, docs/19,
+docs/20), with no single place a future session could check it without
+already knowing which report to search.
+
 ## Next
 
 Task 2: wire `grammar_detected` into `score.py` against the approved
