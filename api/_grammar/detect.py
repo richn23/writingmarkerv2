@@ -518,12 +518,40 @@ _WORD = re.compile(r"[a-z]+")
 _WORD_CASED = re.compile(r"[A-Za-z]+")
 
 
+# FIX 7 (25 Aug 2026, Task 3c) -- '\d' IS AMBIGUOUS BETWEEN "HAD" AND "WOULD".
+#
+# LENS's own `expand()` (grammarDetect.ts:443, confirmed identical -- this is
+# upstream, not a porting artifact) unconditionally maps 'd -> " would". That
+# is right for "'d + bare verb" ("they'd love to come" = "they would love to
+# come", "I'd rather stay" = idiom, always "would") but wrong for "'d + past
+# participle" ("they'd already mentioned it" = "they had already mentioned
+# it", "she'd finished" = "she had finished") -- those were resolving to a
+# spurious modals-ability/would hit ("would already", "would finished") while
+# the real past-perfect went entirely undetected.
+#
+# Disambiguated the same way the rest of this file already looks past an
+# aux to its participle: skip any SKIP-listed adverb, then check whether the
+# next word is a past participle via the existing is_pp()/IRREG_PP -- no new
+# data, reusing exactly what the "had"/"have" branches already use for the
+# identical judgment call.
+def _next_word_after(s, pos):
+    for m in re.finditer(r"[A-Za-z']+", s[pos:]):
+        w = m.group(0).lower()
+        if w not in SKIP:
+            return w
+    return ""
+
+
+def _expand_d(m):
+    return " had" if is_pp(_next_word_after(m.string, m.end())) else " would"
+
+
 def _expand(s):
     s = re.sub(r"\bcan't\b", "can not", s, flags=re.I)
     s = re.sub(r"\bwon't\b", "will not", s, flags=re.I)
     s = re.sub(r"n't\b", " not", s, flags=re.I)
     s = re.sub(r"'ll\b", " will", s, flags=re.I)
-    s = re.sub(r"'d\b", " would", s, flags=re.I)
+    s = re.sub(r"'d\b", _expand_d, s, flags=re.I)
     s = re.sub(r"'ve\b", " have", s, flags=re.I)
     s = re.sub(r"'re\b", " are", s, flags=re.I)
     s = re.sub(r"'m\b", " am", s, flags=re.I)

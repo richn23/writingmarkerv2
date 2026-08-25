@@ -1,8 +1,9 @@
 """
 Regression fixtures for the Fix 6 grammar-leveling gate fix (docs/23, 24 Aug
-2026) -- the specific triggering sentences the original 92-example fixture
-set (docs/21) did not include, which is why it passed 92/92 while the
-FORM-only gate bug shipped undetected.
+2026) and the Fix 7 'd-contraction disambiguation fix (Task 3c, 25 Aug 2026)
+-- the specific triggering sentences the original 92-example fixture set
+(docs/21) did not include, which is why it passed 92/92 while both bugs
+shipped undetected.
 
 Dependency-free, matching api/score.py's own convention: run directly with
 `python3 tests/test_grammar_regression.py`, no pytest/requirements.txt.
@@ -71,6 +72,24 @@ CASES = [
     ("modals-past: may have -- LENS's flagged, now-confirmed case",
      "She may have thought about it.",
      "modals-past", "may", "b2"),
+
+    # Fix 7 (Task 3c, 25 Aug 2026): 'd + past participle means "had", not
+    # "would" -- confirmed identical bug in live LENS via a direct tsx run.
+    ("'d + past participle disambiguates to had, not would",
+     "They'd already mentioned it before the meeting started.",
+     "past-perfect", "past_perfect_simple", "b1"),
+    ("'d + past participle disambiguates to had, not would (2)",
+     "She'd finished her homework by the time I arrived.",
+     "past-perfect", "past_perfect_simple", "b1"),
+    ("'d been + -ing disambiguates to had (past perfect continuous)",
+     "They'd been waiting for hours when the bus finally came.",
+     "past-perfect-continuous", "past_perfect_continuous", "b1"),
+    ("'d + bare verb still correctly means would (regression guard)",
+     "They'd love to come to the party.",
+     "modals-ability", "would", "a2"),
+    ("'d rather is a fixed idiom, still correctly would (regression guard)",
+     "I'd rather stay home tonight.",
+     "modals-ability", "would", "a2"),
 ]
 
 # can/shall: LENS flagged these as possibly affected too. Confirmed: EGP has
