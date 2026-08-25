@@ -1,7 +1,8 @@
 """
-Grammar Accuracy v1 (docs/24 Revision 3, docs/29) -- Task 1 (subject-verb
-agreement) and Task 2 (verb-form over-regularization). Not wired into
-score.py yet (Task 11, not this increment).
+Grammar Accuracy v1 (docs/24 Revision 3, docs/29, docs/33) -- Task 1
+(subject-verb agreement), Task 2 (verb-form over-regularization), and Task
+3's first family (Number). Not wired into score.py yet (Task 11, not this
+increment).
 
 INPUT MODEL (doc 27's correction, not Repertoire/Metrics' pattern): reads
 raw/written text as the primary input -- scoring the approved interpretation
@@ -278,5 +279,108 @@ def check_verb_form_overregularization(raw_text, written_to_intended=None, pos_o
                     "matched": written, "sentence_index": sent_idx,
                 })
                 break
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Task 3, family 1 -- Number: missing/wrong plural after an explicit
+# quantity marker (docs/33's recommended first candidate)
+# ---------------------------------------------------------------------------
+#
+# Reuses _engine.lemmas.IRREGULAR's existing, trusted irregular-plural pairs
+# (checked directly before building this, docs/33) -- same reuse pattern as
+# Task 2's IRREG_PAST, not new data. Restated locally (not imported) since
+# IRREGULAR also carries irregular pasts/participles and suppletive
+# comparatives unrelated to number -- pulling only the plural pairs keeps
+# this file's own reference explicit and independently checkable.
+_IRREGULAR_PLURALS = {
+    "men": "man", "women": "woman", "children": "child", "people": "person",
+    "teeth": "tooth", "feet": "foot", "mice": "mouse", "geese": "goose",
+    "lives": "life", "wives": "wife", "knives": "knife", "leaves": "leaf",
+    "wolves": "wolf", "shelves": "shelf", "halves": "half", "thieves": "thief",
+}
+_IRREGULAR_SINGULAR_TO_PLURAL = {v: k for k, v in _IRREGULAR_PLURALS.items()}
+
+# Numbers 2-12 only (not "one" -- takes a singular noun -- and not compound
+# numbers like "twenty-one", out of scope for this narrow check) plus
+# quantifiers that UNAMBIGUOUSLY require a plural countable noun. Excludes
+# "some"/"a lot of"/"most"/"all" deliberately -- those pair correctly with
+# EITHER countable-plural ("some books") or uncountable-singular ("some
+# information"), and this module has no countability data (docs/33), so an
+# ambiguous marker would risk a confident wrong answer rather than a
+# conservative no-flag.
+_NUMBER_WORDS = set("two three four five six seven eight nine ten eleven twelve".split())
+_PLURAL_QUANTIFIERS = set("many several few both various numerous".split())
+_QUANTITY_MARKERS = _NUMBER_WORDS | _PLURAL_QUANTIFIERS
+
+# Common uncountable nouns a learner might pair with a quantity marker by
+# mistake -- that's a COUNTABILITY error, a different (and, per docs/33,
+# deferred) construct from a missing/wrong plural marker on a noun that IS
+# countable. Excluded so this check never confidently asserts a made-up
+# plural ("advices") is what was needed. Short, visible, add-from-observed-
+# data, same spirit as ADJ_PARTICIPLE elsewhere in this file/detect.py.
+_COMMON_UNCOUNTABLE = set(
+    "advice information furniture equipment news homework luggage baggage "
+    "traffic weather money work research evidence progress knowledge".split()
+)
+
+
+def check_number(raw_text, written_to_intended=None, pos_of=None):
+    """
+    Detects a quantity marker (a number 2-12, or an unambiguous plural
+    quantifier) followed immediately by a noun that isn't correctly plural.
+    Word identity deferred the same way as Tasks 1-2 (docs/24 Overlap
+    Rule 1).
+
+    SCOPE, deliberately narrow: only examines the word immediately after
+    the marker. "three big dog" (an intervening adjective) is not detected
+    -- the same kind of honest, stated limitation as Task 1's missing-verb
+    exclusion, not a silent gap. Returns a list of error dicts: {family,
+    edit_type, written, intended, correct, matched, sentence_index}.
+    `correct` is populated only for the irregular-plural case (a direct,
+    unambiguous lookup); left `None` for the regular "needs an -s" case,
+    since asserting one exact regular spelling (sibilant "-es", consonant+y
+    -> "-ies", …) risks a confidently wrong guess this module has no basis
+    for.
+    """
+    written_to_intended = written_to_intended or {}
+    sentences = split_sentences(raw_text)
+    errors = []
+
+    def intended_of(tok):
+        return written_to_intended.get(tok, tok)
+
+    for sent_idx, sentence in enumerate(sentences):
+        low = _expand(sentence.lower())
+        w = _WORD.findall(low)
+
+        for i in range(len(w) - 1):
+            if w[i] not in _QUANTITY_MARKERS:
+                continue
+            written_noun = w[i + 1]
+            noun = intended_of(written_noun)
+
+            if noun in _COMMON_UNCOUNTABLE:
+                continue
+            if noun in _IRREGULAR_PLURALS:
+                continue  # already correctly irregular-plural
+            if noun.endswith("s") and not noun.endswith("ss"):
+                continue  # regular plural, correctly marked
+            if not (pos_of and pos_of(noun)["noun"]):
+                continue  # not recognised as a noun at all -- don't guess
+
+            if noun in _IRREGULAR_SINGULAR_TO_PLURAL:
+                correct = _IRREGULAR_SINGULAR_TO_PLURAL[noun]
+                edit_type = "wrong-form"
+            else:
+                correct = None
+                edit_type = "missing"
+
+            errors.append({
+                "family": "number", "edit_type": edit_type,
+                "written": written_noun, "intended": noun, "correct": correct,
+                "matched": "%s %s" % (w[i], written_noun), "sentence_index": sent_idx,
+            })
 
     return errors
