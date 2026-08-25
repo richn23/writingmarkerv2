@@ -1,43 +1,22 @@
 # Grammar Accuracy v1: error-counting protocol — investigation + proposal
 
-**Revision 2** (25 Aug 2026). Investigation and proposal only — still no
-code written. Revises the original version below at the requester's
-instruction, to: state an explicit "error-free" definition, reconcile the
-feature-family taxonomy against the edit-type taxonomy, and restate the
-overlap/cascading rules as settled rather than open. Responds to a prompt
-referencing `claude_21-grammar-full-spec`, `claude_22-grammar-spec-
-amendment`, and `claude_23-grammar-error-protocol-sequence` (all 24 Aug
-2026), plus a follow-up asserting doc 23 "wasn't in the repo yet [but] now
-that it is."
+**Revision 3** (25 Aug 2026). Investigation and proposal only — still no
+Accuracy code written. Checked properly this time: `docs/26`
+(`claude_21-grammar-full-spec`), `docs/27` (`claude_22`, the first
+amendment), and `docs/28` (`claude_23`, the error-protocol-sequence second
+amendment) now exist in this repo and have been read in full. Revisions 1
+and 2 were built from paraphrase and pasted fragments because those three
+documents didn't exist here yet; this revision replaces every place that
+mattered with what they actually say, not just the two items flagged for
+update.
 
-## Doc 23 (and 19, 20c, 22) still do not exist in this project
-
-Checked again immediately before this revision, fresh: no `claude_19`/
-`claude_20`/`claude_21`/`claude_22`/`claude_23` file, and no
-`grammar-metrics`/`tier`/`calibration` file, anywhere in the repo, under any
-name or numbering. This project's own `docs/19` and `docs/20` are unrelated
-pre-existing files (a coverage-display investigation and a spelling-error-
-rate investigation, both from before this brief existed) — not the "Tier 1
-proxy metrics" or "calibration protocol" documents referenced. This is the
-same pattern as the earlier "LENS fact-finding response," "Doc 16," and the
-original claude_21/22/23 references: the advisory session's own document
-numbering does not correspond to anything saved into this repo, and the
-belief that doc 23 has since "landed" here does not hold up against a
-direct check.
-
-**What this revision is actually built from**, since doc 23's real text is
-still not available to me: the specific content pasted directly into the
-follow-up instruction — the category list ("subject-verb agreement, verb
-form, tense, article/determiner, number, pronoun, preposition, word
-order"), the "error-free" requirement, and the reconciliation direction
-("feature-family as the primary category with edit-type as a
-sub-classification") — plus everything Revision 1 already verified against
-the actual code. Where this revision states something as a firm rule below,
-that firmness is this document adopting the instruction's own direction,
-not independent confirmation against doc 23's text, which I still have not
-seen. If doc 23 exists somewhere outside this repo, pasting its actual text
-would let this be checked properly rather than reconstructed from category
-names and paraphrase.
+One correction found beyond the two flagged items, material enough to
+restructure a section: **doc 27 corrects the input model for Accuracy
+specifically** — it reads raw/written text, not the approved interpretation
+Repertoire and Metrics read. Revisions 1–2 had Accuracy reading the
+interpretation (matching Repertoire/Metrics' pattern); that was wrong for
+Accuracy, and everything downstream of it (Overlap Rule 1 especially) is
+rewritten below to match doc 27's actual correction rather than patched.
 
 ## Investigation 1: how Spelling's taxonomy actually draws its lines
 
@@ -47,12 +26,15 @@ upstream category source, `api/_intent/review.categorise()`, and where
 doesn't show *how* a token lands in a category, only what happens once it
 has.
 
-**Categories, as actually built** (not as docs/02 originally named them —
-see the drift note below): `minor_slip` (one edit, same sound —
-"beautifull"), `boundary` (run together/split — "alot"), `phonetic`
-(2+ edits, same sound — "skooi"), `wrong_word` (a *different real word* —
-"bast" for "based"), `unrecoverable` (no confident reading), `proper_noun`
-(excluded from scoring entirely).
+**Categories, as actually built** (doc 26/28 cite doc 10's naming —
+`correct`/`minor_slip`/`boundary`/`phonetic`/`wrong_word`/`unrecoverable`/
+`proper_noun` — which matches the code exactly; docs/02's older
+"sound/structural/boundary" framing does not, see the drift note below):
+`minor_slip` (one edit, same sound — "beautifull"), `boundary` (run
+together/split — "alot"), `phonetic` (2+ edits, same sound — "skooi"),
+`wrong_word` (a *different real word* — "bast" for "based"),
+`unrecoverable` (no confident reading), `proper_noun` (excluded from
+scoring entirely).
 
 **`categorise()`'s actual decision tree** (`api/_intent/review.py:273`):
 
@@ -87,14 +69,16 @@ grammatical reasoning about which one the sentence needs.
 
 docs/02 (18 Aug 2026, the original six-dimension model) describes Spelling
 as "error type: sound/structural/boundary, severity: recognisable/unclear/
-unrecoverable." The as-built code has six categories under different names,
-and critically, `wrong_word` — a real-word-for-real-word confusion — isn't
-clearly anticipated by that three-way sound/structural/boundary framing at
-all. If Grammar's error taxonomy gets designed against docs/02's original
-prose description rather than the actual shipped categories, it will very
-likely re-claim `wrong_word` cases as grammar errors without realizing
-Spelling already fully scores them — a live double-counting risk, not a
-hypothetical one.
+unrecoverable." The as-built code has six categories under different names
+(doc 26/28 correctly cite doc 10's naming instead, confirmed matching the
+code), and critically, `wrong_word` — a real-word-for-real-word confusion —
+isn't clearly anticipated by docs/02's three-way framing at all. If
+Grammar's error taxonomy gets designed against docs/02's original prose
+description rather than the actual shipped categories, it will very likely
+re-claim `wrong_word` cases as grammar errors without realizing Spelling
+already fully scores them — a live double-counting risk, not a
+hypothetical one. (Doc 28 independently arrives at the same seam via its
+own example — see the Grammar/Spelling boundary rule below.)
 
 ## Investigation 2: is raw (pre-correction) text available, separate from the interpretation?
 
@@ -106,14 +90,15 @@ hypothetical one.
   "approved interpretation": spelling-only corrected (per
   `_intent/layer.py`'s own docstring: "Nothing is inserted, no grammar is
   touched, and no word is upgraded"). This is what Grammar Detected/Range
-  already reads (`_grammar_source_text()` in score.py, falling back to
-  `_corrected_text()` when the intent layer didn't run).
+  and Grammar Metrics both read (`_grammar_source_text()` in score.py).
 - `out["corrected_text"]` — a third, always-present field: the
   deterministic-only correction, used as `corrected_sample`'s own fallback.
 
 Both raw and interpretation text are already siblings on the same response
-object, with no new plumbing required for Accuracy to read both. Confirmed
-by reading the field assignments directly, not inferred.
+object, with no new plumbing required. Confirmed by reading the field
+assignments directly, not inferred. **This is now load-bearing, not just
+available**: doc 27 requires Accuracy to read the raw field as its primary
+input — see the input model correction below.
 
 ## A structural problem this investigation surfaced, not asked for but load-bearing
 
@@ -127,41 +112,79 @@ flagged.** "She have finished" would very likely not register as an
 attempted present perfect at all under the current detector, let alone as
 one done wrong.
 
-This means Accuracy cannot be built as "judge what Range already finds" —
-it needs its own, separate attempt-recognition logic that can recognize a
-malformed attempt as an attempt, which is a materially different and
-harder problem than Range's correctly-shaped pattern matching. This is
-almost certainly *why* Accuracy was scoped out of the original grammar
-brief as "not built yet," and it directly shapes the "unit of error"
-question below — worth surfacing explicitly before any protocol gets
-signed off on, since it changes what "v1" can realistically mean.
+Doc 26 §4 independently confirms this is why full attempted-vs-landed
+EGP-structure mapping (LENS's original design) is architecturally harder
+than Repertoire or Metrics, and doc 28's revised sequence schedules it as
+"eventually... not scheduled" — step 6, after even Accuracy v2. Consistent
+with, not contradicted by, what this investigation found independently.
+
+## The input model — corrected per doc 27, not what Revisions 1–2 had
+
+**Doc 27's correction, verbatim reasoning:** Repertoire and Metrics both
+read the approved interpretation text. Accuracy must not — doing so would
+score the correction pipeline's grammar, not the learner's. "Yesterday I go
+shopping and buy two shirt" corrected to "Yesterday I went shopping and
+bought two shirts" would show *zero* errors if Accuracy read the corrected
+version, because the errors under measurement (`go→went`, `buy→bought`,
+`shirt→shirts`) are exactly what correction removes. Doc 27 also grounds
+this in an existing project principle from doc 06: the written+intended
+pair `spelling_score.py`'s `score()` already takes is "the template every
+future construct's scoring should copy, not reinvent."
+
+**Corrected model:**
+
+| Section | Reads from |
+|---|---|
+| Grammar detected (Repertoire) | Approved interpretation text |
+| Grammar Metrics (Complexity) | Approved interpretation text |
+| Grammar Accuracy | **Raw/written learner text**, with the approved interpretation available as the paired "intended" reference — same written+intended shape `spelling_score.py`'s `attempts` list already uses |
+
+**What this changes about the protocol below**: Accuracy doesn't ask "is
+this interpreted word used correctly" — it asks "does the written form
+match what the writer needed, given what they were interpreted to mean."
+Word *identity* still defers entirely to the interpretation (Overlap Rule
+1, rewritten below) — Accuracy never re-decides which word was intended.
+What it independently examines is the *written form's own grammatical
+marking* against that already-settled identity, which is a genuinely
+different question from what Repertoire/Metrics ask of the same text.
+
+This also sharpens the morphological over-regularization case (Overlap
+Rule 3): because Accuracy sees the raw text directly, it can recognize
+"goed" as an attempted irregular past tense even in the likely case that
+neither Spelling nor the interpretation ever resolves it to "went" at all
+(the form-test gate structurally can't bridge that far) — "written" and
+"intended" may be identical for that token, and Accuracy's judgment there
+has to come from its own irregular-verb knowledge, not from a
+written-vs-intended discrepancy the earlier pipeline stages already
+surfaced.
+
+**Not resolved here, flagged for the eventual build brief** (doc 27's own
+words): this is a new data contract for Accuracy specifically (raw +
+interpretation as a pair, not the single text field the other two
+sections share) and shouldn't default to reusing Repertoire/Metrics'
+single-field pattern when that build starts.
 
 ## "Error-free" — explicit definition
 
-**"Error-free" means zero grammar errors specifically**, per the taxonomy
-below. A sentence carrying a spelling slip or a punctuation issue but no
-grammar error is error-free. This is not a looser reading of "clean
-writing" — it is a statement about which dimension a given metric is
-measuring, and it must hold both in the metric's own definition and in
-whatever UI label surfaces it (never "error-free" unqualified, always
-"grammatically error-free" or equivalent, wherever it's shown to a marker).
+**"Error-free" means zero grammar errors, full stop — not "no errors of
+any kind."** A sentence carrying a spelling mistake or a punctuation slip
+but zero grammar errors still counts as error-free for this metric. Stated
+plainly per doc 28's own requirement, both here and in whatever UI label
+surfaces it — never presented as a general correctness score.
 
 This falls directly out of Overlap Rule 1 below, not as an extra check
-layered on top: if a token has already been claimed by Spelling, Grammar
-Accuracy never independently evaluates it, so a spelling slip can never be
-double-counted as a grammar error and can never cost a sentence its
-error-free status under this definition. The definition is only as reliable
-as that rule being airtight in the actual implementation — a gap there
-would silently make "error-free" mean something narrower or broader than
-stated here.
+layered on top: Grammar Accuracy never independently re-decides word
+identity for a token Spelling has already resolved, so a spelling slip can
+never be double-counted as a grammar error and can never cost a sentence
+its error-free status under this definition. The definition is only as
+reliable as that rule being airtight in the actual implementation.
 
 ## Category boundaries — reconciled: feature-family primary, edit-type sub-classification
 
-Two taxonomies were sitting side by side unmerged: doc 23's eight
-feature-family categories (subject-verb agreement, verb form, tense,
-article/determiner, number, pronoun, preposition, word order) and doc 02's
-four edit-type categories (missing / wrong-form / added / wrong-order).
-Combined as instructed: **feature-family is the primary category a marker
+Doc 28's eight feature-family categories (subject-verb agreement, verb
+form, tense, article/determiner, number, pronoun, preposition, word order)
+and doc 02's four edit-type categories (missing / wrong-form / added /
+wrong-order) combine as: **feature-family is the primary category a marker
 sees; edit-type is a sub-classification within it**, describing *how* that
 feature went wrong rather than *which* feature it was.
 
@@ -176,110 +199,137 @@ feature went wrong rather than *which* feature it was.
 | Preposition | wrong-form; missing | "arrived the station" (missing "at"); "married with her" (wrong-form) |
 | Word order | wrong-order (only) | "always I go" |
 
-Two things worth stating plainly rather than smoothing over:
+Word order is structurally exclusive: by definition a word-order error IS
+a misordering, so "wrong-order" is effectively the only applicable
+edit-type for that feature-family.
 
-- **Word order is structurally exclusive**: by definition, a word-order
-  error IS a misordering, so "wrong-order" is effectively the only
-  applicable edit-type for that feature-family. The other three edit-types
-  don't meaningfully apply there.
-- **Comparatives/superlatives ("more better") and several other EGP
-  families Range already detects (passive voice, relative clauses,
-  reported speech, conditionals, modals) do not map cleanly onto doc 23's
-  eight features.** This is either an intentional scope decision — doc 23's
-  eight categories are the classic "core" morphosyntactic error set from
-  error-analysis research, and structure-specific errors (passive
-  formation, relative clause formation) may be deliberately out of v1's
-  scope — or a gap in what's been pasted here versus doc 23's full list.
-  I can't tell which from what's available; flagging rather than guessing.
-  If it's the former, this needs to be stated as an explicit exclusion (see
-  below); if the latter, the missing feature categories need to be shared.
+**These eight are v1's diagnostic layer, not the whole of v1** — doc 28's
+build order (§ below) puts two *global* metrics (errors/100 words,
+error-free sentence %) ahead of this feature breakdown. The eight
+categories give distribution *underneath* the global counts, not the
+counts themselves.
 
-Severity stays as Revision 1 proposed: binary-ish, "meaning survives or
-breaks" (doc 02), distinct from Spelling's continuous weighted scale, since
-the two measure genuinely different things (orthographic cost vs.
-communicative damage) and forcing Grammar onto Spelling's numeric model
-would blur that.
+Severity: binary-ish, "meaning survives or breaks" (doc 02) — distinct
+from Spelling's continuous weighted scale, since the two measure genuinely
+different things (orthographic cost vs. communicative damage). Not
+addressed in docs 26–28 specifically; carried forward from doc 02 as
+unchanged and uncontradicted.
 
-## Overlap rules with Spelling — stated as rules, not recommendations
+## Overlap rules with Spelling — rewritten for the corrected input model
 
-1. **Any token Spelling has already claimed as an error, under any of its
-   six categories, is out of scope for Grammar Accuracy on that token.**
-   Accuracy reads from the already-resolved interpretation and never
-   independently re-evaluates a token Spelling has scored. This is the rule
-   the "error-free" definition above depends on.
+1. **Word identity is never re-decided by Grammar Accuracy.** For any
+   token, the "intended" word is whatever the interpretation already
+   settled on (Spelling's correction, the intent layer's resolution, or
+   the written form itself if nothing changed it) — Accuracy takes that as
+   given and only examines whether the written form's own grammatical
+   marking is correct for that identity. This is the rule the "error-free"
+   definition depends on, and it's the mechanism that makes "reads raw
+   text" (above) not mean "re-litigates spelling."
 2. **Homophone/confusable real-word pairs (Spelling's `wrong_word`
    category) stay entirely Spelling's**, even where the confusion lands on
    a grammatical category by coincidence (possessive vs. contraction:
-   "its"/"it's"). Grammar Accuracy treats the interpretation layer's
-   resolved word identity as given and only judges whether that word is
-   used correctly — it never re-litigates which word was intended.
+   "its"/"it's"). Falls directly out of Rule 1: word identity there is
+   already settled by Spelling: Accuracy only asks whether *that* word,
+   once identified, is grammatically correct.
 3. **Morphological over-regularization ("goed," "runned," "comed") is
-   Grammar's domain, not Spelling's.** Spelling's form-test-gated corrector
-   structurally can't reach these (edit distance/phonetic similarity to the
-   correct irregular form is normally too large to pass `form_test`), so
-   they fall through as `unrecoverable` or unresolved in Spelling rather
-   than being claimed by it — there is no overlap to adjudicate, only a gap
-   Spelling leaves that Grammar fills. This is exactly why raw-text access
-   (confirmed available in Investigation 2 above) matters for Accuracy: it
-   needs to examine what the learner actually wrote, not only the
-   spelling-corrected reading, to catch this class at all.
+   Grammar's domain, not Spelling's.** Doc 28 names this exact case as the
+   canonical Grammar/Spelling seam requiring "its own explicit rule, not an
+   assumption that the two taxonomies will naturally sort themselves out."
+   Spelling's form-test-gated corrector structurally can't reach these
+   (edit distance/phonetic similarity to the correct irregular form is
+   normally too large to pass `form_test`), so they fall through as
+   `unrecoverable` or stay unresolved in Spelling rather than being claimed
+   by it. Per the input model above, Accuracy sees the raw "goed" directly
+   and judges it as a verb-form error using its own irregular-verb
+   knowledge — not by comparing against an interpretation that may never
+   have resolved it either.
 4. **Punctuation stays its own dimension** (doc 02) — counted in neither
    Spelling's nor Grammar Accuracy's error tallies.
 
-## Cascading-error treatment — stated as a rule
+## Cascading-error treatment — two distinct scenarios, both need a stated rule
 
-**Count by root cause, not by surface symptom.** One underlying mistake
-that could be described under more than one feature-family or edit-type
-(a missing 3rd-person "-s" is describable as both a Verb form error and a
-Subject-verb agreement error) counts once, attributed to the single most
-specific applicable feature-family, not once per possible description.
+Revision 2 only addressed the first of these. Doc 28 names a second,
+materially different one that needs its own rule, not a reuse of the
+first.
 
-Mechanically: two candidate errors merge into one when they share a token
-span and describe the same grammatical relationship (the verb and its
-subject, in the example above) — implemented as a span-overlap check at
-merge time, not as a rule requiring the detector itself to only ever
-propose one description per token. This is stated as the rule to build
-against; it has not been validated against real error data, since no
-Accuracy code exists yet to validate it with.
+**Scenario A — one span, multiple possible descriptions.** A missing
+3rd-person "-s" is describable as both a Verb form error and a
+Subject-verb agreement error. **Rule: count once, attributed to the single
+most specific applicable feature-family** — mechanically, two candidate
+errors merge when they share a token span and describe the same
+grammatical relationship (the verb and its subject), implemented as a
+span-overlap check at merge time.
+
+**Scenario B — one root error propagating as many later "errors."** Doc
+28's example: an early tense error establishes a pattern (present tense
+used for past narration), and every subsequent verb that's internally
+consistent with the writer's own established (incorrect) pattern would
+otherwise get flagged as a separate, fresh tense error relative to standard
+English. **Rule: once a specific error type is identified as a sustained
+pattern across a stretch of text (not a single slip), count it once as a
+pattern-level error, scoped to where it holds** — not once per instance,
+and not silently reduced to only the first occurrence either, since that
+would understate how pervasive it is. The count reflects the pattern's
+span (e.g. "present-for-past used consistently across N clauses"), not N
+separate identical tense errors.
+
+Both rules are stated to build against; neither has been validated against
+real error data, since no Accuracy code exists yet to validate them with.
 
 ## Exclusions — stated as rules
 
 - The 16 EGP families Range already defers stay deferred for Accuracy too.
-  If a structure isn't reliably detectable at all, judging attempts at it
-  is premature. The 2 partial families keep their existing honest
-  detects/misses framing for Accuracy as well.
+  The 2 partial families keep their existing honest detects/misses framing
+  for Accuracy as well.
+- **Structure-specific EGP families that don't map onto the eight feature
+  categories (comparatives/superlatives, passive voice, relative clauses,
+  reported speech, conditionals, modals) are excluded from v1 — confirmed
+  intentional scope limit, not a gap.** Doc 28's build order schedules the
+  full attempted-vs-landed EGP-structure mapping as step 6, "eventually...
+  not scheduled" — v1 is deliberately the eight-feature deterministic
+  layer plus the two global metrics, nothing structure-specific.
 - Proper nouns, already excluded from Spelling's scoring, are excluded from
   Grammar's scanning too — no agreement judgments on names.
 - Register-driven, plausibly-intentional non-standard forms (informal
   contractions, deliberate fragments) default to not-flagged when genuinely
   ambiguous, rather than building intent-detection for this in v1.
-- Structure-specific EGP families that don't map onto doc 23's eight
-  feature categories (see the table note above) are excluded from v1
-  pending clarification of whether that's doc 23's intent.
 
-## What's now settled vs. still open
+## Unit of error — settled
 
-**Settled by this revision** (per the explicit instruction to firm these
-up): the error-free definition; the reconciled feature-family/edit-type
-taxonomy; both overlap rules with Spelling, including the
-over-regularization boundary (now stated as Grammar's domain, not left
-open); the cascading-error merge rule; the four exclusions.
+**Word/local-agreement level — confirmed, not attempted-structure level.**
+Refined by doc 28's actual build order, which is more specific than a
+binary choice:
 
-**Still open, unresolved by anything provided so far**:
+1. **Global, sentence-level**: errors/100 words, error-free sentence % —
+   raw counts, no feature categorization needed at this layer.
+2. **Feature-level, underneath the global counts**: the eight
+   deterministic checks above, giving diagnostic distribution.
+3. **Deferred to Accuracy v2** (doc 28 step 5, after Tier 2's T-unit
+   parsing is calibrated): errors/T-unit, error-free T-unit % — sentence
+   is v1's unit, T-unit is v2's, and v2 is explicitly gated on Tier 2
+   being trustworthy first.
+4. **Deferred indefinitely** (doc 28 step 6, "not scheduled"):
+   attempted-vs-landed EGP-structure mapping — the harder, per-family
+   attempt-recognition problem the structural finding above describes.
 
-1. **Unit of error** — (a) attempted-structure level, extending Range's own
-   family model (larger build, needs new per-family attempt-recognition
-   logic), or (b) word/local-agreement level (smaller v1, doesn't map onto
-   Range's families the same way). Revision 1's recommendation of (b)
-   stands; nothing in this revision's inputs addressed it.
-2. **The structure-specific-family gap** above (comparatives, passives,
-   relative clauses, etc. not mapping onto the eight listed features) —
-   intentional v1 scope limit, or missing categories from doc 23's actual
-   list?
-3. **Whether this document, even now, matches doc 23's real content.**
-   Revision 2 is built from what was pasted into the follow-up instruction
-   plus Revision 1's own investigation — not from doc 23's text, which
-   remains unseen. If doc 23 exists outside this repo, sharing its actual
-   content would let this be checked directly rather than reconstructed.
+## What's settled vs. still open
+
+**Settled**: error-free definition; the input model (raw text, paired
+interpretation, per doc 27); the reconciled taxonomy; both cascading-error
+rules; all four overlap rules; the structure-specific-family exclusion;
+unit of error, with doc 28's actual phasing.
+
+**Still open**:
+
+1. Whether to act on doc 27's build-priority reprioritization
+   (Repertoire → Accuracy → Complexity) now, or finish Tier 1/2 Metrics
+   work already in flight first — doc 27 explicitly leaves this as your
+   call, not a decision either advisory document makes. (Doc 28's revised
+   sequence assumes Accuracy is next, but doc 28 also says explicitly:
+   "Not yet acted on — still your call.")
+2. Whether Revision 3 now fully matches docs 26–28 — checked directly this
+   time, not reconstructed from paraphrase, but worth a final read-through
+   on your side before treating it as signed off, since these are dense
+   documents and a subtler point could still have been missed.
 
 No build authorization sought or assumed.
