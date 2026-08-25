@@ -1,8 +1,8 @@
 """
 Grammar Accuracy v1 (docs/24 Revision 3, docs/29, docs/33) -- Task 1
 (subject-verb agreement), Task 2 (verb-form over-regularization), and Task
-3's first family (Number). Not wired into score.py yet (Task 11, not this
-increment).
+3's Number and Word order (frequency-adverb placement) families. Not wired
+into score.py yet (Task 11, not this increment).
 
 INPUT MODEL (doc 27's correction, not Repertoire/Metrics' pattern): reads
 raw/written text as the primary input -- scoring the approved interpretation
@@ -38,6 +38,7 @@ deferred rather than guessed at. -ing forms and unrecognised tokens are
 explicitly excluded from flagging for the same reason.
 """
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -45,7 +46,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from .detect import (
     _expand, _WORD, _WORD_CASED, SKIP, SING_DET, SUBJ_PRON_ANY,
     SUBJ_PRON_3SG, SUBJ_PRON_BARE, is_singular_noun, is_past_form,
-    is_proper_noun_subject, IRREG_PAST, IRREG_PP,
+    is_proper_noun_subject, IRREG_PAST, IRREG_PP, FREQ_ADV, AUX_OR_MODAL,
 )
 from .sentences import split_sentences
 from _engine.lemmas import lemma_candidates  # noqa: E402 -- same reach-outside-the-package pattern pos.py already uses
@@ -382,5 +383,116 @@ def check_number(raw_text, written_to_intended=None, pos_of=None):
                 "written": written_noun, "intended": noun, "correct": correct,
                 "matched": "%s %s" % (w[i], written_noun), "sentence_index": sent_idx,
             })
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Task 3, family 2 -- Word order: frequency-adverb placement
+# (docs/33's second recommended candidate)
+# ---------------------------------------------------------------------------
+#
+# Reuses Range's own FREQ_ADV directly -- no new reference data at all,
+# confirmed present in detect.py before scoping this (docs/33). Range's own
+# adverbs-of-frequency family is explicitly "detected by presence only --
+# position analysis deferred" (its own PARTIAL-adjacent note) -- this check
+# is exactly that deferred position analysis, built as its own construct
+# rather than folded back into Range's detector.
+#
+# TWO PATTERNS ONLY, both deliberately conservative:
+#
+# Pattern A (sentence-initial) is scoped to "always" ALONE, not all of
+# FREQ_ADV -- checked directly, English frequency adverbs do not behave
+# uniformly sentence-initially: "sometimes"/"usually"/"often"/"frequently"/
+# "occasionally" are completely normal there ("Sometimes I go to the park"
+# is correct, unremarkable English, not an error), while "never"/"rarely"/
+# "seldom" require SUBJECT-AUX INVERSION when fronted ("Never have I seen"
+# -- correct; "Never I have seen" -- wrong) -- a case Range's own detector
+# already has separate, nested fencing logic for (INVERSION_OPENERS/
+# FRONTED_NEGATIVE, detect.py) that isn't safely reusable here without
+# replicating its full nuance. Rather than guess at that, this increment
+# flags ONLY "always", the one case with no competing correct reading
+# sentence-initially in a plain declarative. "never"/"rarely"/"seldom"
+# fronting is a stated, separate, deferred case -- not silently handled
+# wrong.
+#
+# Pattern B (adverb after the main verb, "I go always to school") applies
+# to the full FREQ_ADV set -- no comparable nuance: standard mid-position
+# adverb placement puts a frequency adverb BEFORE the main lexical verb for
+# every member of this set, with no valid reading where it follows one.
+# Only fires immediately after a CONFIRMED subject+verb pair (reusing Task
+# 1's own subject-detection patterns) rather than any verb-shaped word
+# anywhere in the sentence, for the same false-positive reason Task 1's
+# "my sister works" bug taught: a bare "is this word a verb" check isn't
+# enough on its own.
+_FRONTING_REQUIRES_INVERSION = {"never", "rarely", "seldom"}
+
+
+def check_word_order_frequency_adverbs(raw_text, written_to_intended=None, pos_of=None):
+    """
+    Detects a frequency adverb in one of two unambiguous wrong positions.
+    Word identity deferred the same way as Tasks 1-2 (docs/24 Overlap
+    Rule 1). Questions are skipped entirely -- word order in questions is a
+    different, harder problem, out of this check's scope.
+
+    Returns a list of error dicts: {family, edit_type, written, intended,
+    matched, sentence_index, reason}.
+    """
+    written_to_intended = written_to_intended or {}
+    sentences = split_sentences(raw_text)
+    errors = []
+
+    def intended_of(tok):
+        return written_to_intended.get(tok, tok)
+
+    for sent_idx, sentence in enumerate(sentences):
+        if re.search(r"\?\s*$", sentence.strip()):
+            continue
+        low = _expand(sentence.lower())
+        w = _WORD.findall(low)
+        orig = _WORD_CASED.findall(_expand(sentence))
+        if not w:
+            continue
+
+        # Pattern A -- sentence-initial "always" before an apparent subject.
+        first = intended_of(w[0])
+        if first == "always" and len(w) > 1:
+            nxt = intended_of(w[1])
+            if nxt in SUBJ_PRON_ANY or nxt in SING_DET or is_proper_noun_subject(orig, w, 1, pos_of):
+                errors.append({
+                    "family": "word-order", "edit_type": "wrong-order",
+                    "written": w[0], "intended": first,
+                    "matched": " ".join(w[:2]), "sentence_index": sent_idx,
+                    "reason": "sentence-initial",
+                })
+        elif first in _FRONTING_REQUIRES_INVERSION:
+            pass  # deferred -- requires inversion detection this check doesn't attempt (see module note)
+
+        # Pattern B -- frequency adverb immediately after a confirmed
+        # subject+verb pair, where it should have preceded the verb.
+        for i in range(len(w)):
+            subj_end = None
+            if w[i] in SUBJ_PRON_ANY:
+                subj_end = i + 1
+            elif (w[i] in SING_DET and i + 1 < len(w)
+                  and is_singular_noun(intended_of(w[i + 1]), pos_of)):
+                subj_end = i + 2
+            elif is_proper_noun_subject(orig, w, i, pos_of):
+                subj_end = i + 1
+
+            if subj_end is None or subj_end >= len(w):
+                continue
+            verb = intended_of(w[subj_end])
+            if verb in AUX_OR_MODAL or not (pos_of and pos_of(verb)["verb"]):
+                continue  # not a plain lexical verb -- out of this pattern's scope
+
+            adv_idx = subj_end + 1
+            if adv_idx < len(w) and intended_of(w[adv_idx]) in FREQ_ADV:
+                errors.append({
+                    "family": "word-order", "edit_type": "wrong-order",
+                    "written": w[adv_idx], "intended": intended_of(w[adv_idx]),
+                    "matched": " ".join(w[i:adv_idx + 1]), "sentence_index": sent_idx,
+                    "reason": "after-verb",
+                })
 
     return errors
