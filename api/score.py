@@ -346,6 +346,60 @@ def _grammar_detected(text):
     }
 
 
+_SUBORDINATION_METRIC_FAMILIES = {"subordination", "concessive-clauses", "relative-clauses", "reported-speech"}
+_COORDINATION_METRIC_FAMILIES = {"coordinating-conjunctions"}
+_PASSIVE_METRIC_FAMILIES = {"passive"}
+# The four core modal families. Excludes would-like/used-to/wish -- real
+# constructions, but not what "modal density" means; counting them in would
+# inflate the figure with things a marker wouldn't recognise as a modal.
+_MODAL_METRIC_FAMILIES = {"modals-ability", "modals-obligation", "modals-deduction", "modals-past"}
+
+
+def _grammar_metrics(text, gd):
+    """
+    Tier 1 proxy metrics (24 Aug build brief) -- descriptive/quantitative
+    counts and ratios, deliberately not another leveling judgment. No new
+    parsing: every density metric is a straightforward aggregation over
+    `gd["families"]`, the same Pass 1 output `grammar_detected` already
+    produced, and every ratio divides by the sentence count computed from
+    the SAME text `gd` was detected from -- never a different tokenization
+    borrowed from the (unrelated) Translate-screen script statistics, which
+    reads the raw as-written text rather than the approved interpretation.
+    """
+    import re
+    sentences = split_sentences(text)
+    sentence_count = len(sentences)
+    word_count = sum(len(re.findall(r"[A-Za-z']+", s)) for s in sentences)
+    mean_sentence_length = round(word_count / sentence_count, 1) if sentence_count else None
+
+    hit_count = {f["family"]: sum(inst.get("count") or 0 for inst in f["instances"])
+                 for f in gd["families"]}
+
+    def density(family_set):
+        if not sentence_count:
+            return None
+        n = sum(hit_count.get(f, 0) for f in family_set)
+        return round(n / sentence_count, 2)
+
+    detected_count = sum(1 for f in gd["families"] if f["detected"])
+    total_detectable = len(gd["families"])
+
+    return {
+        "sentence_count": sentence_count,
+        "word_count": word_count,
+        "mean_sentence_length": mean_sentence_length,
+        "subordination_density": density(_SUBORDINATION_METRIC_FAMILIES),
+        "coordination_density": density(_COORDINATION_METRIC_FAMILIES),
+        "passive_voice_frequency": density(_PASSIVE_METRIC_FAMILIES),
+        "modal_density": density(_MODAL_METRIC_FAMILIES),
+        "structure_diversity": {
+            "detected_count": detected_count,
+            "total_detectable": total_detectable,
+            "ratio": round(detected_count / total_detectable, 2) if total_detectable else None,
+        },
+    }
+
+
 def _intent_summary(result):
     """The fourth reading, flattened for the batch table. Absent is normal."""
     prof = result.get("intent")
@@ -547,8 +601,16 @@ def detail(result):
     })
     out["grammar_detected"] = None
     out["grammar_detected_error"] = None
+    out["grammar_metrics"] = None
+    out["grammar_metrics_error"] = None
     try:
-        out["grammar_detected"] = _grammar_detected(_grammar_source_text(result))
+        grammar_text = _grammar_source_text(result)
+        gd = _grammar_detected(grammar_text)
+        out["grammar_detected"] = gd
+        try:
+            out["grammar_metrics"] = _grammar_metrics(grammar_text, gd)
+        except Exception as exc:                              # never fail the score over this
+            out["grammar_metrics_error"] = "%s: %s" % (type(exc).__name__, exc)
     except Exception as exc:                                  # never fail the score over this
         out["grammar_detected_error"] = "%s: %s" % (type(exc).__name__, exc)
     return out

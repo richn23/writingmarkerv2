@@ -154,6 +154,19 @@ type Detail = Summary & {
     coverage?: any;
   } | null;
   grammar_detected_error?: string | null;
+  // Tier 1 proxy metrics only -- descriptive/quantitative, not a leveling
+  // judgment. See docs/23.
+  grammar_metrics?: {
+    sentence_count: number;
+    word_count: number;
+    mean_sentence_length: number | null;
+    subordination_density: number | null;
+    coordination_density: number | null;
+    passive_voice_frequency: number | null;
+    modal_density: number | null;
+    structure_diversity: { detected_count: number; total_detectable: number; ratio: number | null };
+  } | null;
+  grammar_metrics_error?: string | null;
 };
 
 // A marker's disagreement with one vocabulary proposal, keyed by the token as
@@ -1889,9 +1902,64 @@ function GrammarDetectedSection({ d }: { d: Detail }) {
   );
 }
 
+function MetricTile({ label, value, unit, sub }: { label: string; value: React.ReactNode; unit?: string; sub?: string }) {
+  return (
+    <div style={{ ...S.card, marginBottom: 0 }}>
+      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: C.ink3, marginBottom: 6 }}>
+        {label}
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em" }}>{value}</span>
+        {unit ? <span style={{ fontSize: 12, color: C.ink3 }}>{unit}</span> : null}
+      </div>
+      {sub ? <div style={{ fontSize: 11, color: C.ink3, marginTop: 4 }}>{sub}</div> : null}
+    </div>
+  );
+}
+
+function GrammarMetricsSection({ d }: { d: Detail }) {
+  const gm = d.grammar_metrics;
+  const dash = "—";
+
+  if (d.grammar_metrics_error) {
+    return (
+      <div style={{ ...S.note, borderLeftColor: C.bad, color: C.bad }}>
+        Grammar metrics failed on this sample: {d.grammar_metrics_error}
+      </div>
+    );
+  }
+  if (!gm) {
+    return <div style={S.note}>No grammar metrics ran for this sample.</div>;
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 14 }}>
+        <b>Descriptive, not a leveling judgment.</b> These are counts and ratios over the same
+        structures Grammar detected already found — how often, not how well. None of these are
+        CEFR levels, and none should be read as one.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+        <MetricTile label="Sentences" value={gm.sentence_count} />
+        <MetricTile label="Mean sentence length" value={gm.mean_sentence_length ?? dash} unit="words" />
+        <MetricTile label="Subordination density" value={gm.subordination_density ?? dash} unit="per sentence"
+                    sub="subordination, concessive, relative, reported speech" />
+        <MetricTile label="Coordination density" value={gm.coordination_density ?? dash} unit="per sentence" />
+        <MetricTile label="Passive voice frequency" value={gm.passive_voice_frequency ?? dash} unit="per sentence" />
+        <MetricTile label="Modal density" value={gm.modal_density ?? dash} unit="per sentence"
+                    sub="ability, obligation, deduction, modal + have" />
+        <MetricTile label="Structure diversity"
+                    value={`${gm.structure_diversity.detected_count} / ${gm.structure_diversity.total_detectable}`}
+                    sub="distinct families detected, out of all detectable" />
+      </div>
+    </div>
+  );
+}
+
 function GrammarProfileTab({ d }: { d: Detail }) {
   // Independent, so opening one never closes the other.
   const [openDetected, setOpenDetected] = useState(false);
+  const [openMetrics, setOpenMetrics] = useState(false);
   const [openAccuracy, setOpenAccuracy] = useState(false);
 
   const detectedCount = d.grammar_detected?.families.filter((f) => f.detected).length ?? 0;
@@ -1913,6 +1981,23 @@ function GrammarProfileTab({ d }: { d: Detail }) {
         }
       >
         <GrammarDetectedSection d={d} />
+      </Collapsible>
+
+      <Collapsible
+        title="Grammar Metrics"
+        open={openMetrics}
+        onToggle={() => setOpenMetrics((v) => !v)}
+        sub="Descriptive counts and ratios — not another leveling judgment"
+        headline={
+          <>
+            <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: C.grammar }}>
+              {d.grammar_metrics?.sentence_count ?? "—"}
+            </span>
+            <span style={{ fontSize: 12, color: C.ink3 }}>sentences analysed</span>
+          </>
+        }
+      >
+        <GrammarMetricsSection d={d} />
       </Collapsible>
 
       <Collapsible
