@@ -446,6 +446,55 @@ AUX_OR_MODAL = set(
     "could may might must shall should ought used".split()
 )
 
+# Promoted from closures inside detect_grammar_structures() (Task 0, docs/29,
+# 25 Aug 2026) so Accuracy's subject-verb-agreement check (accuracy.py) can
+# reuse the exact same anchoring logic Range's own baseline-tense pass uses,
+# rather than a second, potentially-drifting copy. Pure extraction -- same
+# bodies, `pos_of` (and `orig`/`w`/`i` for the last one) now explicit
+# parameters instead of captured from the enclosing function's scope. Zero
+# behavior change, verified against the full 92-example fixture set staying
+# byte-identical.
+def is_third_s(x, strict, pos_of):
+    if not x or len(x) < 4 or not x.endswith("s") or x.endswith("ss") or x in AUX_S:
+        return False
+    if not pos_of:
+        return False
+    info = pos_of(x)
+    return (info["verb_dominant"] and not info["noun"]) if strict else info["verb"]
+
+
+def is_past_form(x, pos_of):
+    if not x or x in AUX_PAST or x in ADJ_PARTICIPLE:
+        return False
+    if x in IRREG_PAST:
+        return True
+    if len(x) > 3 and x.endswith("ed") and pos_of:
+        info = pos_of(x)
+        return info["verb"] and not info["surface_verb"]
+    return False
+
+
+def is_bare_verb(x, pos_of):
+    if not x or len(x) <= 1 or x in AUX_OR_MODAL or x in ADJ_PARTICIPLE:
+        return False
+    if x.endswith("s") and not x.endswith("ss"):
+        return False
+    if x.endswith("ing") or is_past_form(x, pos_of):
+        return False
+    return bool(pos_of and pos_of(x)["verb"])
+
+
+def is_singular_noun(x, pos_of):
+    return bool(x and not x.endswith("s") and pos_of and pos_of(x)["noun"])
+
+
+def is_proper_noun_subject(orig, w, i, pos_of):
+    if len(orig) != len(w):
+        return False
+    tok = orig[i] if i < len(orig) else ""
+    return bool(re.match(r"^[A-Z]", tok or "")) and bool(pos_of) and not pos_of(w[i])["known"]
+
+
 # Clause-level coordination.
 CLAUSE_COORD = re.compile(
     r"(,\s*(and|but|or|so|yet)\b|\b(and|but|or|so|yet)\s+(i|you|he|she|it|we|they|the|a|an|this|that|these|those|my|your|his|her|its|our|their)\b)",
@@ -843,41 +892,9 @@ def detect_grammar_structures(sentences, pos_of=None):
             i += 1
 
         # ---- baseline tenses, high-precision subset ----
-        def is_third_s(x, strict):
-            if not x or len(x) < 4 or not x.endswith("s") or x.endswith("ss") or x in AUX_S:
-                return False
-            if not pos_of:
-                return False
-            info = pos_of(x)
-            return (info["verb_dominant"] and not info["noun"]) if strict else info["verb"]
-
-        def is_past_form(x):
-            if not x or x in AUX_PAST or x in ADJ_PARTICIPLE:
-                return False
-            if x in IRREG_PAST:
-                return True
-            if len(x) > 3 and x.endswith("ed") and pos_of:
-                info = pos_of(x)
-                return info["verb"] and not info["surface_verb"]
-            return False
-
-        def is_bare_verb(x):
-            if not x or len(x) <= 1 or x in AUX_OR_MODAL or x in ADJ_PARTICIPLE:
-                return False
-            if x.endswith("s") and not x.endswith("ss"):
-                return False
-            if x.endswith("ing") or is_past_form(x):
-                return False
-            return bool(pos_of and pos_of(x)["verb"])
-
-        def is_singular_noun(x):
-            return bool(x and not x.endswith("s") and pos_of and pos_of(x)["noun"])
-
-        def is_proper_noun_subject(i):
-            if len(orig) != len(w):
-                return False
-            tok = orig[i] if i < len(orig) else ""
-            return bool(re.match(r"^[A-Z]", tok or "")) and bool(pos_of) and not pos_of(w[i])["known"]
+        # is_third_s/is_past_form/is_bare_verb/is_singular_noun/
+        # is_proper_noun_subject are module-level now (Task 0, docs/29) --
+        # pos_of/orig/w passed explicitly at each call site below.
 
         for i in range(len(w)):
             if inverted and in_inverted(i):
@@ -887,11 +904,11 @@ def detect_grammar_structures(sentences, pos_of=None):
                 cands.append({"v": nextIdx(i), "third": w[i] in SUBJ_PRON_3SG,
                               "strict": False, "bare": w[i] in SUBJ_PRON_BARE})
             elif w[i] in SING_DET and pos_of:
-                if i + 1 < len(w) and is_singular_noun(w[i + 1]):
+                if i + 1 < len(w) and is_singular_noun(w[i + 1], pos_of):
                     cands.append({"v": i + 2, "third": True, "strict": True, "bare": False})
-                if i + 2 < len(w) and is_singular_noun(w[i + 2]):
+                if i + 2 < len(w) and is_singular_noun(w[i + 2], pos_of):
                     cands.append({"v": i + 3, "third": True, "strict": True, "bare": False})
-            elif is_proper_noun_subject(i):
+            elif is_proper_noun_subject(orig, w, i, pos_of):
                 cands.append({"v": nextIdx(i), "third": True, "strict": False, "bare": False})
 
             for c in cands:
@@ -900,22 +917,22 @@ def detect_grammar_structures(sentences, pos_of=None):
                     continue
                 if c["strict"] and w[c["v"] - 1] in SUBJ_PRON_ANY:
                     continue
-                if c["third"] and is_third_s(verb, c["strict"]):
+                if c["third"] and is_third_s(verb, c["strict"], pos_of):
                     fire("present-simple", "present_simple", i, c["v"] - i + 1, past=False, marker=None)
                     break
-                if c["bare"] and is_bare_verb(verb):
+                if c["bare"] and is_bare_verb(verb, pos_of):
                     fire("present-simple", "present_simple", i, c["v"] - i + 1, past=False, marker=None)
                     break
-                if is_past_form(verb):
+                if is_past_form(verb, pos_of):
                     fire("past-simple", "past_simple", i, c["v"] - i + 1, past=True, marker=None)
                     break
 
         # C3b -- near-miss bookkeeping
         for i in range(len(w)):
             if "present-simple" not in sent_fired:
-                if w[i] in SING_DET and pos_of and pos_of(w[i + 1] if i + 1 < len(w) else "")["noun"] and is_bare_verb(w[i + 2] if i + 2 < len(w) else None):
+                if w[i] in SING_DET and pos_of and pos_of(w[i + 1] if i + 1 < len(w) else "")["noun"] and is_bare_verb(w[i + 2] if i + 2 < len(w) else None, pos_of):
                     partial_relevant.add("present-simple")
-                if w[i] in ("do", "does") and any(is_bare_verb(x) for x in w[i + 1:i + 4]):
+                if w[i] in ("do", "does") and any(is_bare_verb(x, pos_of) for x in w[i + 1:i + 4]):
                     partial_relevant.add("present-simple")
             if "past-simple" not in sent_fired and w[i].endswith("ed") and w[i] in ADJ_PARTICIPLE:
                 partial_relevant.add("past-simple")
