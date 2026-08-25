@@ -178,35 +178,97 @@ def _prose_condition_holds(can_do, matched, window, fam):
 
 
 class FireCtx:
-    __slots__ = ("question", "negative", "past", "marker", "variant", "window")
+    __slots__ = ("question", "negative", "past", "marker", "variant", "window", "thematic_marker")
 
     def __init__(self, question=False, negative=False, past=False,
-                 marker=None, variant=None, window=None):
+                 marker=None, variant=None, window=None, thematic_marker=False):
         self.question = question
         self.negative = negative
         self.past = past
         self.marker = marker
         self.variant = variant
         self.window = window
+        # Opt-in only. Most call sites pass a common auxiliary/modal as
+        # marker ("are", "is", "was", "could"...), which WILL turn up as
+        # ordinary grammatical glue in unrelated USE-row prose -- exactly
+        # the class of false match Fix 2 exists to prevent (see the note
+        # above _resolve_structure). Fix 6's prose search is a genuine,
+        # narrow exception to guideword-only scoring, so it stays opt-in to
+        # the few call sites (wish/if-only) where the marker is distinctive
+        # enough that a prose match means something.
+        self.thematic_marker = thematic_marker
+
+
+# FIX 6 (24 Aug 2026) -- THE FORM-ONLY GATE WAS DISCARDING THE ONLY ROW THAT
+# COULD BE RIGHT.
+#
+# Fix 2's gate blanket-excluded every USE:/FORM/USE: row from a family's
+# candidate pool whenever the family had ANY row starting "FORM:". That
+# over-corrected: for `wish` (10 of 24 rows discarded, including the
+# wish/regret row itself), `conditional` (23 of 27 discarded, including
+# every second/third-conditional row), and `past_perfect_simple` (12 of 20,
+# including both "if only" rows), the excluded rows were not incidental --
+# they were the only rows that actually describe the fired construction. A
+# genuine second conditional was resolving to a2 "if + present simple"
+# because nothing else was left to compete with it. Root-caused and
+# regression-fixtured in docs/23.
+#
+# The fix is not "stop excluding rows" alone -- that reopens the ORIGINAL
+# bug Fix 2 existed for (a USE row winning by incidental vocabulary overlap
+# in its own guideword, not real evidence). So every row stays in the pool,
+# and scoring stays guideword-only for the generic AFFIRMATIVE/NEGATIVE/
+# QUESTION/PAST signals and the existing marker/variant/quoted-word checks
+# -- unchanged, still guideword-only, still narrow.
+#
+# What's new is one ADDITIONAL, narrowly-scoped signal: some rows (`USE:
+# REGRET`, the shared "AFTER 'IF ONLY' AND 'WISH'" row) name their own
+# construction only in the can-do prose, never in the guideword -- so no
+# guideword-only signal can ever tell them apart from a generic row. For
+# those, and only when the row's own can-do prose contains the ALREADY-KNOWN
+# trigger word from match time (never a generic vocabulary scan -- exactly
+# one specific word, chosen by the detector, not guessed by the resolver),
+# award a bonus large enough to beat a same-family row's largest realistic
+# generic-only score. Where a can-do sentence covers more than one
+# construction/polarity in one breath (the shared wish/if-only row covers
+# both), the polarity check is scoped to the clause that actually names the
+# marker, not the whole sentence -- otherwise "if only" and "wish" bleed
+# into each other's affirmative/negative claims.
+_CLAUSE_SPLIT = re.compile(r"[,.]")
+
+# Scoped, not universal. The brief's own diagnosis (docs/23) names three
+# families as broken by the blanket exclusion: `wish` (past_simple,
+# past_perfect_simple), `conditional`, and the modals-past sub-families
+# (all 8 modal names). Widening the pool for every other family too surfaced
+# an UNRELATED, pre-existing scoring quirk -- `question-tags` rows are
+# penalised for containing the word "QUESTION" in their own guideword, since
+# ctx.question is never set true for tag detection, and that penalty used to
+# be masked only because the form-only gate excluded the row it was hurting
+# most. That is a real, separate bug, not this brief's to fix -- flagged,
+# not silently patched alongside this one. Keeping the pool restriction for
+# every family outside this set preserves their exact prior behaviour.
+_UNGATE_FAMILIES = {"past_simple", "past_perfect_simple", "conditional"} | set(MODAL_FAMILY.values())
 
 
 def _resolve_structure(fam, ctx):
     rows = _FAMILY_ROWS.get(fam)
     if not rows:
         return None
-    # Gate: conditioned rows are not selectable by form alone. If a family
-    # has no form-only row at all the detection still has to report
-    # something, so fall back to the whole set and mark it -- silence would
-    # read as "no structure here", which is worse.
     form_only = [r for r in rows if _is_form_only_row(r)]
-    pool = form_only if form_only else rows
-    condition_unverified = not form_only
+    # No blanket exclusion for the families Fix 6 targets (see
+    # _UNGATE_FAMILIES above) -- every row in those families competes.
+    # Every other family keeps the original fallback-only-if-empty gate.
+    pool = rows if fam in _UNGATE_FAMILIES else (form_only if form_only else rows)
+    marker_re = None
+    if ctx.marker:
+        marker_re = re.compile(r"(?<![A-Z])" + re.escape(ctx.marker.upper()) + r"(?![A-Z])")
 
     win = (ctx.window or "").lower()
     best, best_score, basis_bits = None, float("-inf"), []
     for r in pool:
-        # GUIDEWORD ONLY -- never the can-do prose (see the note above).
+        # GUIDEWORD ONLY for every generic/marker/variant signal below --
+        # never the can-do prose (see the note above the function).
         T = (r.get("guideword") or "").upper()
+        can_do = r.get("can_do") or ""
         sc = 0
         has_q = bool(re.search(r"QUESTION", T))
         has_n = bool(re.search(r"NEGATIV", T))
@@ -226,7 +288,8 @@ def _resolve_structure(fam, ctx):
             sc += 2 if has_past else 0
         else:
             sc -= 2 if has_past else 0
-        if ctx.marker and re.search(r"(?<![A-Z])" + re.escape(ctx.marker.upper()) + r"(?![A-Z])", T):
+        guideword_marker_hit = bool(marker_re and marker_re.search(T))
+        if guideword_marker_hit:
             sc += 2
         # rows citing a specific quoted word that is NOT in the matched window are penalised
         quoted = [m.group(1).lower() for m in re.finditer(r"'([A-Za-z][A-Za-z ()-]*)'", r.get("guideword") or "")]
@@ -245,6 +308,44 @@ def _resolve_structure(fam, ctx):
                 sc += 3
             elif re.search(r"(REAL|IMPERATIVE)", T):
                 sc -= 3
+        # FIX 6 -- the named-construction signal. Guideword-only signals above
+        # are unconditional; this is additive, and only ever searches for the
+        # one word ctx.marker already names.
+        #
+        # The base bonus is gated to "guideword alone didn't already reveal
+        # it" -- otherwise a row that already earns the ordinary +2 above
+        # (e.g. a genuine FORM-only row that happens to quote the marker
+        # word, like the 'had it not been for' fixed expression matching a
+        # plain `marker="had"` past-perfect detection) would double-count the
+        # same evidence and spuriously outrank a row with real signal but no
+        # quoted marker. The polarity refinement below is NOT re-gated the
+        # same way: it is a separate, useful differentiator needed even when
+        # the guideword already carries the marker (the shared "if only"/
+        # "wish" row does, but its guideword alone can't tell an affirmative
+        # "if only" claim from a negative one -- only the prose, clause by
+        # clause, can).
+        prose_marker_hit = bool(
+            ctx.thematic_marker and marker_re and marker_re.search(can_do.upper())
+        )
+        if marker_re and not guideword_marker_hit and prose_marker_hit:
+            sc += 5
+        if ctx.thematic_marker and marker_re and (guideword_marker_hit or prose_marker_hit):
+            for clause in _CLAUSE_SPLIT.split(can_do):
+                CU = clause.upper()
+                if not marker_re.search(CU):
+                    continue
+                c_has_a = "AFFIRMATIVE" in CU
+                c_has_n = "NEGATIVE" in CU
+                if ctx.negative:
+                    if c_has_n:
+                        sc += 2
+                    if c_has_a and not c_has_n:
+                        sc -= 2
+                else:
+                    if c_has_a:
+                        sc += 2
+                    if c_has_n and not c_has_a:
+                        sc -= 2
         # TIE-BREAK: strictly-greater keeps the FIRST best, and `pool` is
         # level-ascending, so a tie resolves to the LOWEST row -- the
         # governing "where the evidence does not decide, under-state" rule.
@@ -265,10 +366,15 @@ def _resolve_structure(fam, ctx):
         basis_bits.append(ctx.variant + " conditional")
     if ctx.marker:
         basis_bits.append("marker '%s'" % ctx.marker)
-    if condition_unverified:
-        basis_bits.append("no form-only row in this family -- condition unverified")
+    # Confidence flag: true whenever the winning row's own identification
+    # rested on more than a pure form declaration -- either it is not a
+    # FORM:-only row (Fix 6 above), or its can-do states a condition the
+    # fired evidence cannot verify (Fix 5, unchanged).
+    best_is_form_only = _is_form_only_row(best)
     prose_ok = _prose_condition_holds(best.get("can_do"), ctx.window or "", win, fam)
-    suppress = condition_unverified or not prose_ok
+    condition_unverified = (not best_is_form_only) or (not prose_ok)
+    if not best_is_form_only:
+        basis_bits.append("selected via a non-form-only row -- condition unverified")
     if not prose_ok:
         basis_bits.append("can-do states an unverifiable condition -- description withheld")
     return {
@@ -276,9 +382,9 @@ def _resolve_structure(fam, ctx):
         "level": best.get("level"),
         "level_num": level_num(best.get("level")),
         "guideword": best.get("guideword"),
-        "can_do": None if suppress else best.get("can_do"),
+        "can_do": None if condition_unverified else best.get("can_do"),
         "basis": " + ".join(basis_bits),
-        "condition_unverified": suppress,
+        "condition_unverified": condition_unverified,
     }
 
 
@@ -424,6 +530,38 @@ def _expand(s):
     return s
 
 
+def _level_evidence(raw_hits):
+    """
+    PASS 2 of 2. Takes Pass 1's raw evidence (one entry per fired
+    explorer_id+family, each carrying the FireCtx the detector captured at
+    match time under "_ctx") and resolves an EGP row/level for each,
+    independently -- one family's resolve failing or changing does not
+    touch another's. Returns the same per-hit shape `add()` used to build
+    inline before this split, minus the internal "_ctx" field.
+    """
+    out = []
+    for h in raw_hits:
+        ctx = h["_ctx"]
+        rep = _resolve_structure(h["family_id"], ctx)
+        out.append({
+            "explorer_id": h["explorer_id"],
+            "name": h["name"],
+            "matched": h["matched"],
+            "matched_spans": h["matched_spans"],
+            "count": h["count"],
+            "family_id": h["family_id"],
+            "egp_structure_id": rep["structure_id"] if rep else None,
+            "level": rep["level"] if rep else None,
+            "level_num": rep["level_num"] if rep else 0,
+            "guideword": rep["guideword"] if rep else None,
+            "can_do": rep["can_do"] if rep else None,
+            "selection_basis": rep["basis"] if rep else None,
+            "condition_unverified": rep["condition_unverified"] if rep else False,
+            "general_description": SHORT_DESCRIPTION.get(h["explorer_id"]) if (rep and not rep["can_do"]) else None,
+        })
+    return out
+
+
 def detect_grammar_structures(sentences, pos_of=None):
     """Detect grammar structures across sentences. Pure and deterministic.
 
@@ -435,6 +573,12 @@ def detect_grammar_structures(sentences, pos_of=None):
     # C3b -- which PARTIAL limits could actually bite on THIS input.
     partial_relevant = set()
 
+    # PASS 1 -- EVIDENCE ONLY. `add()` records that a family fired, its
+    # matched span(s), and the context the resolver will eventually need --
+    # it does not call the resolver itself. Mirrors the Vocab/Spelling split
+    # between interpretation and scoring: token-matching stays separable
+    # from EGP-row selection, so either stage can be inspected, tested, or
+    # changed on its own. See _level_evidence() below for Pass 2.
     def add(explorer_id, family, matched, ctx=None):
         ctx = ctx or FireCtx()
         key = explorer_id + "|" + family
@@ -444,10 +588,6 @@ def detect_grammar_structures(sentences, pos_of=None):
             if matched and matched not in cur["matched_spans"] and len(cur["matched_spans"]) < 8:
                 cur["matched_spans"].append(matched)
             return
-        rep = _resolve_structure(family, FireCtx(
-            question=ctx.question, negative=ctx.negative, past=ctx.past,
-            marker=ctx.marker, variant=ctx.variant, window=ctx.window or matched,
-        ))
         hits[key] = {
             "explorer_id": explorer_id,
             "name": ("%s (%s)" % (NAMES[explorer_id], family)) if explorer_id == "modals-past"
@@ -456,14 +596,11 @@ def detect_grammar_structures(sentences, pos_of=None):
             "matched_spans": [matched] if matched else [],
             "count": 1,
             "family_id": family,
-            "egp_structure_id": rep["structure_id"] if rep else None,
-            "level": rep["level"] if rep else None,
-            "level_num": rep["level_num"] if rep else 0,
-            "guideword": rep["guideword"] if rep else None,
-            "can_do": rep["can_do"] if rep else None,
-            "selection_basis": rep["basis"] if rep else None,
-            "condition_unverified": rep["condition_unverified"] if rep else False,
-            "general_description": SHORT_DESCRIPTION.get(explorer_id) if (rep and not rep["can_do"]) else None,
+            "_ctx": FireCtx(
+                question=ctx.question, negative=ctx.negative, past=ctx.past,
+                marker=ctx.marker, variant=ctx.variant, window=ctx.window or matched,
+                thematic_marker=ctx.thematic_marker,
+            ),
         }
 
     for sentence in sentences:
@@ -614,9 +751,37 @@ def detect_grammar_structures(sentences, pos_of=None):
             elif t == "there" and n and n in ("is", "are", "was", "were", "will", "has", "have"):
                 fire("there-is-are", "there_isare", i, 2)
             elif t in ("wish", "wishes", "wished") and n:
-                fire("wish", "past_simple", i, 2)
-            elif t == "if" and n == "only":
-                fire("wish", "past_perfect_simple", i, 2)
+                # FIX 6b -- family selection has to look at the COMPLEMENT's
+                # own tense, not just the trigger word: "I wish I knew" is
+                # simple past, "she wished she had brought her notes" is past
+                # perfect, and this branch used to send both to past_simple.
+                # marker is canonicalised to "wish" (not the inflected surface
+                # form) because the EGP can-do prose that names this
+                # construction always quotes the dictionary form -- see Fix 6
+                # in _resolve_structure.
+                k = after_subject(j)
+                m = w[k] if k < len(w) else None
+                if k > j and m == "had" and k + 1 < len(w) and is_pp(w[k + 1]):
+                    fire("wish", "past_perfect_simple", i, 2, marker="wish", past=True, thematic_marker=True)
+                else:
+                    fire("wish", "past_simple", i, 2, marker="wish", past=True, thematic_marker=True)
+            elif t == "if" and i + 1 < len(w) and w[i + 1] == "only":
+                # FIX 6c -- "only" sits in SKIP, so nextIdx() always skips
+                # past it when computing `n` above: `n == "only"` could never
+                # be true, meaning this branch was dead code (confirmed
+                # against the live LENS detector too -- same bug upstream,
+                # not introduced by the port; see docs/23). Check the literal
+                # next token instead of the SKIP-filtered one, since "if only"
+                # is a fixed two-word collocation, not a case where an
+                # intervening adverb should be skipped over.
+                #
+                # ctx.negative also needs its own look-ahead: fire()'s default
+                # only checks a 3-token window centred on "if only" itself,
+                # which never reaches a "not" sitting after the subject and
+                # auxiliary ("if only she HAD NOT changed...").
+                k = after_subject(i + 2)
+                neg = k + 1 < len(w) and w[k + 1] == "not"
+                fire("wish", "past_perfect_simple", i, 2, marker="if", past=True, negative=neg, thematic_marker=True)
             elif t in FREQ_ADV:
                 fire("adverbs-of-frequency", "adverbs_and_adverb_phrases_types_and_meanings", i, 1)
             elif t in SUBORDINATORS and i > 0:
@@ -748,7 +913,13 @@ def detect_grammar_structures(sentences, pos_of=None):
             if_m = re.search(r"\bif\b[^,.?!;]*", low)
             if_span = " ".join(((if_m.group(0) if if_m else "if").strip().split())[:6])
             if re.search(r"\b(would|could|might) (have\s+)?\w+", low):
-                add("conditionals-unreal", "conditional", if_span, FireCtx(variant="unreal", marker="if", window=ts))
+                # FIX 6d -- past=True: second/third conditionals are
+                # inherently past-shifted ("if" + past simple/perfect), so
+                # the second/third-conditional rows' own guideword PAST
+                # mentions should count as evidence, not go unscored. Real
+                # (zero/first) conditionals below are NOT past-shifted, so
+                # that branch is left alone.
+                add("conditionals-unreal", "conditional", if_span, FireCtx(variant="unreal", marker="if", past=True, window=ts))
                 sent_fired.add("conditionals-unreal")
             else:
                 add("conditionals-real", "conditional", if_span, FireCtx(variant="real", marker="if", window=ts))
@@ -842,7 +1013,9 @@ def detect_grammar_structures(sentences, pos_of=None):
         )
         per_sentence.append({"subordination": sub, "coordination": coord})
 
-    detected = sorted(hits.values(), key=lambda d: (-d["level_num"], d["name"]))
+    # PASS 2 -- LEVELLING. Maps Pass 1's raw evidence onto an EGP row/level
+    # per hit, via the (now gate-fixed, Fix 6) resolver.
+    detected = sorted(_level_evidence(hits.values()), key=lambda d: (-d["level_num"], d["name"]))
     return {
         "detected": detected,
         "per_sentence": per_sentence,
