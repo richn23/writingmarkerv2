@@ -1,8 +1,8 @@
 """
 Grammar Accuracy v1 (docs/24 Revision 3, docs/29, docs/33) -- Task 1
 (subject-verb agreement), Task 2 (verb-form over-regularization), and Task
-3's Number and Word order (frequency-adverb placement) families. Not wired
-into score.py yet (Task 11, not this increment).
+3's Number, Word order (frequency-adverb placement), and Pronoun case
+families. Not wired into score.py yet (Task 11, not this increment).
 
 INPUT MODEL (doc 27's correction, not Repertoire/Metrics' pattern): reads
 raw/written text as the primary input -- scoring the approved interpretation
@@ -494,5 +494,123 @@ def check_word_order_frequency_adverbs(raw_text, written_to_intended=None, pos_o
                     "matched": " ".join(w[i:adv_idx + 1]), "sentence_index": sent_idx,
                     "reason": "after-verb",
                 })
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Task 3, family 3 -- Pronoun case (docs/33's third recommended candidate)
+# ---------------------------------------------------------------------------
+#
+# The case table itself is a small, closed class (docs/33) -- restated here
+# rather than imported, since nothing in detect.py already separates
+# subject-form from object-form pronouns this way. "you"/"it" carry no case
+# distinction and are excluded; "who"/"whom" excluded too -- rarer in
+# learner writing and genuinely more complex (relative/interrogative uses
+# with their own rules), deferred rather than folded in casually.
+_SUBJECT_FORMS = {"i", "he", "she", "we", "they"}
+_OBJECT_FORMS = {"me", "him", "her", "us", "them"}
+_SUBJ_TO_OBJ = {"i": "me", "he": "him", "she": "her", "we": "us", "they": "them"}
+_OBJ_TO_SUBJ = {v: k for k, v in _SUBJ_TO_OBJ.items()}
+
+# CAUSATIVE VERBS -- "let him go", "make her stay", "have them wait", "help
+# him finish" are all correct: object-case pronoun immediately followed by
+# a bare verb is exactly right after these, not a subject-position error.
+# Found by testing, not assumed -- the same false-positive shape as Task
+# 1's "my sister works": a naive "object pronoun immediately before a verb
+# must be misplaced subject" rule is wrong here. Small, bounded, visible
+# exclusion list, same spirit as ADJ_PARTICIPLE/_COMMON_UNCOUNTABLE.
+_CAUSATIVE_VERBS = {"let", "make", "made", "have", "had", "help", "helped"}
+
+# No preposition list exists anywhere in this codebase to reuse -- Range's
+# own `prepositions` family is deliberately deferred ("always present --
+# uninformative as a detection", detect.py's DEFERRED list) precisely
+# because Range never needed to enumerate them. Built fresh here, small and
+# bounded, for the one narrow purpose this check needs: recognising
+# "preposition + pronoun" as an object position.
+_COMMON_PREPOSITIONS = set(
+    "to for with at on in from of about between among near against like "
+    "without into onto over under through during before after"
+    .split()
+)
+
+# Direct-object-after-verb ("she saw he") is DELIBERATELY NOT ATTEMPTED --
+# a plain lexical verb is extremely often followed by an embedded clause
+# with its OWN subject ("I know he is here", "she said they were late"),
+# which would false-positive under a naive "verb then pronoun = object
+# position" rule constantly. Nothing distinguishes a direct object from an
+# embedded clause's subject without real syntactic parsing, which this
+# module doesn't have -- an honest, stated exclusion, not a silent gap.
+
+
+def check_pronoun_case(raw_text, written_to_intended=None, pos_of=None):
+    """
+    Detects a pronoun in the wrong case for its position, across three
+    patterns: simple subject position, object position after a common
+    preposition, and a compound subject ("me and him went"). Word identity
+    deferred the same way as Tasks 1-2 (docs/24 Overlap Rule 1). Questions
+    are skipped -- word order in questions is a different problem, same
+    exclusion Word order's own check makes.
+
+    Returns a list of error dicts: {family, edit_type, written, intended,
+    correct, matched, sentence_index, reason}.
+    """
+    written_to_intended = written_to_intended or {}
+    sentences = split_sentences(raw_text)
+    errors = []
+
+    def intended_of(tok):
+        return written_to_intended.get(tok, tok)
+
+    for sent_idx, sentence in enumerate(sentences):
+        if re.search(r"\?\s*$", sentence.strip()):
+            continue
+        low = _expand(sentence.lower())
+        w = _WORD.findall(low)
+
+        for i in range(len(w)):
+            tok = intended_of(w[i])
+
+            # Pattern 1 -- object-form pronoun immediately followed by a
+            # plain lexical verb: looks like a misplaced subject, UNLESS
+            # the word before it is a causative verb ("let him go").
+            if tok in _OBJECT_FORMS and i + 1 < len(w):
+                verb = intended_of(w[i + 1])
+                prev = intended_of(w[i - 1]) if i > 0 else None
+                if (verb not in AUX_OR_MODAL and pos_of and pos_of(verb)["verb"]
+                        and prev not in _CAUSATIVE_VERBS):
+                    errors.append({
+                        "family": "pronoun", "edit_type": "wrong-form",
+                        "written": w[i], "intended": tok, "correct": _OBJ_TO_SUBJ[tok],
+                        "matched": " ".join(w[i:i + 2]), "sentence_index": sent_idx,
+                        "reason": "subject-position",
+                    })
+
+            # Pattern 2 -- subject-form pronoun immediately after a common
+            # preposition: object position requires the object form.
+            if tok in _SUBJECT_FORMS and i > 0 and intended_of(w[i - 1]) in _COMMON_PREPOSITIONS:
+                errors.append({
+                    "family": "pronoun", "edit_type": "wrong-form",
+                    "written": w[i], "intended": tok, "correct": _SUBJ_TO_OBJ[tok],
+                    "matched": " ".join(w[i - 1:i + 1]), "sentence_index": sent_idx,
+                    "reason": "object-position",
+                })
+
+            # Pattern 3 -- compound subject ("me and him went"): a pronoun
+            # (either case), "and", another pronoun, then something
+            # predicate-shaped (a verb or an auxiliary -- broader than
+            # Pattern 1's check, since "X and Y are/were" is squarely a
+            # subject+auxiliary pattern, not the causative-object shape
+            # Pattern 1 has to guard against).
+            if (tok in _OBJECT_FORMS and i + 3 < len(w) and w[i + 1] == "and"
+                    and (intended_of(w[i + 2]) in _SUBJECT_FORMS or intended_of(w[i + 2]) in _OBJECT_FORMS)):
+                predicate = intended_of(w[i + 3])
+                if predicate in AUX_OR_MODAL or (pos_of and pos_of(predicate)["verb"]):
+                    errors.append({
+                        "family": "pronoun", "edit_type": "wrong-form",
+                        "written": w[i], "intended": tok, "correct": _OBJ_TO_SUBJ[tok],
+                        "matched": " ".join(w[i:i + 4]), "sentence_index": sent_idx,
+                        "reason": "compound-subject",
+                    })
 
     return errors
