@@ -208,12 +208,12 @@ def check_subject_verb_agreement(raw_text, written_to_intended=None, pos_of=None
 # cross-verified programmatically against the EXISTING, TRUSTED IRREG_PAST
 # set (used by Range's own is_past_form) -- not just typed from memory.
 # That check caught real mistakes before this ever ran against a sentence:
-# "steal"->"stole" and "forget"->"forgot" are NOT in IRREG_PAST at all, a
-# genuine gap in Range's own reference data (not something to silently patch
-# here -- that's protected, calibrated code, out of this task's scope, and
-# flagged in the accompanying report instead). "wake"->"woke"/"woken" is
-# absent too (only "awake"->"awoke"/"awoken" is present). All three are
-# left out of this starter set rather than built on unverified ground.
+# "steal"->"stole" and "forget"->"forgot" were NOT in IRREG_PAST at all, and
+# "wake"->"woke"/"woken" was absent too (only "awake"->"awoke"/"awoken" was
+# present) -- genuine gaps in Range's own reference data, not typos here.
+# Fixed at the source (Fix 8, detect.py, docs/31/32) rather than patched
+# around in this file, and re-verified against the full 92-example fixture
+# set before being added below.
 #
 # PAST-SIMPLE ONLY for this increment, not past-participle -- the far more
 # common real-world pattern (over-regularized narrative past tense: "I
@@ -232,6 +232,7 @@ IRREGULAR_PAST_BY_BASE = {
     "throw": "threw", "draw": "drew", "fly": "flew",
     "wear": "wore", "sing": "sang", "come": "came",
     "sit": "sat", "stand": "stood", "understand": "understood",
+    "steal": "stole", "forget": "forgot", "wake": "woke",
 }
 assert all(v in IRREG_PAST for v in IRREGULAR_PAST_BY_BASE.values()), (
     "IRREGULAR_PAST_BY_BASE has a form not present in detect.py's own "

@@ -398,7 +398,7 @@ IRREG_PP = set((
     "gotten got hidden stolen swum drunk sung fought sought dealt dug hung shot "
     "slid crept swept wept swung stuck stung struck spun spat sped fled flung "
     "clung sprung sunk shrunk sworn torn ridden blown bitten bred bent bound "
-    "awoken arisen frozen forbidden forgiven mistaken overcome shaken knelt "
+    "awoken woken arisen frozen forbidden forgiven mistaken overcome shaken knelt "
     "lent burnt dreamt trodden withdrawn lain laid beaten borne born ground "
     "grown thrown drawn fallen flown driven risen worn sold read put cut let "
     "set hit shut cost spent meant lit led fed hid held stood understood "
@@ -409,6 +409,15 @@ ADJ_PARTICIPLE = set(
     "tired interested excited bored worried married scared surprised pleased "
     "disappointed confused embarrassed satisfied frightened relaxed closed open".split()
 )
+# FIX 8 (25 Aug 2026, Accuracy v1 Task 2 cross-verification, docs/31) --
+# "stole"/"forgot"/"woke" were absent from this set entirely (their
+# participles "stolen"/"forgotten" were already present above in IRREG_PP;
+# only the past-simple forms were missing here). Found not by inspection
+# but by asserting Accuracy's new irregular-verb starter mapping against
+# this set programmatically before trusting it -- the same "verify, don't
+# hand-trace" discipline as the gate fix. "woken" added to IRREG_PP to
+# match, since "awoken" already had both its past-simple ("awoke") and
+# participle forms present and "woke"/"woken" deserved the same parity.
 IRREG_PAST = set((
     "was were had did went said made got came took saw knew thought bought "
     "brought caught taught found left felt kept told became began ran wrote "
@@ -416,8 +425,9 @@ IRREG_PAST = set((
     "gave won lost built held stood understood grew threw drew fell rose wore "
     "sold spent meant lit led fed hid heard fought sought dealt dug hung shot "
     "slid crept swept wept swung stuck stung struck spun spat sped fled flung "
-    "clung sank shrank stank swore tore rode blew bit bred bent awoke arose "
-    "froze forbade forgave mistook overcame shook knelt lent burnt dreamt trod withdrew"
+    "clung sank shrank stank swore tore rode blew bit bred bent awoke woke arose "
+    "froze forbade forgave mistook overcame shook knelt lent burnt dreamt trod withdrew "
+    "stole forgot"
 ).split())
 
 
