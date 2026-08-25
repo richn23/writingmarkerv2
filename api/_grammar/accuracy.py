@@ -1,8 +1,9 @@
 """
 Grammar Accuracy v1 (docs/24 Revision 3, docs/29, docs/33) -- Task 1
 (subject-verb agreement), Task 2 (verb-form over-regularization), and Task
-3's Number, Word order (frequency-adverb placement), and Pronoun case
-families. Not wired into score.py yet (Task 11, not this increment).
+3's Number, Word order (frequency-adverb placement), Pronoun case, and
+narrow Tense (time-marker contradiction) families. Not wired into score.py
+yet (Task 11, not this increment).
 
 INPUT MODEL (doc 27's correction, not Repertoire/Metrics' pattern): reads
 raw/written text as the primary input -- scoring the approved interpretation
@@ -47,6 +48,7 @@ from .detect import (
     _expand, _WORD, _WORD_CASED, SKIP, SING_DET, SUBJ_PRON_ANY,
     SUBJ_PRON_3SG, SUBJ_PRON_BARE, is_singular_noun, is_past_form,
     is_proper_noun_subject, IRREG_PAST, IRREG_PP, FREQ_ADV, AUX_OR_MODAL,
+    AUX_PAST,
 )
 from .sentences import split_sentences
 from _engine.lemmas import lemma_candidates  # noqa: E402 -- same reach-outside-the-package pattern pos.py already uses
@@ -612,5 +614,145 @@ def check_pronoun_case(raw_text, written_to_intended=None, pos_of=None):
                         "matched": " ".join(w[i:i + 4]), "sentence_index": sent_idx,
                         "reason": "compound-subject",
                     })
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Task 3, family 4 -- narrow Tense: past-time-marker contradiction
+# (docs/33's fourth approved candidate)
+# ---------------------------------------------------------------------------
+#
+# Scoped exactly as docs/33 proposed: an explicit past-time marker present
+# in the sentence, checked against whether the sentence's verb is marked
+# past -- not whole-narrative tense-consistency tracking (docs/24's
+# cascading Scenario B), which stays out of scope, a materially bigger and
+# more novel build than anything in this series so far.
+#
+# is_past_form() deliberately excludes AUX_PAST ("was"/"were"/"had"/"did"/
+# "been"/"being") -- correct for Range's own purpose (those auxiliaries are
+# handled by separate, dedicated branches elsewhere in its detector, not
+# through this generic check), but this module needs a BROADER "does this
+# verb show past marking at all" question, the same "helper calibrated for
+# a different job" lesson as Task 1's is_third_s/is_bare_verb. Checked
+# directly before writing detection code around it, not assumed:
+# is_past_form("was", pos_of) is False even though "was" is obviously past.
+# _verb_shows_past() below treats AUX_PAST membership as past evidence too.
+_PAST_TIME_SINGLE = {"yesterday", "ago"}
+_PAST_TIME_LAST_NOUNS = {
+    "night", "week", "month", "year", "summer", "winter", "spring", "autumn",
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+}
+
+
+def _has_past_time_marker(w):
+    for i, tok in enumerate(w):
+        if tok in _PAST_TIME_SINGLE:
+            return True
+        if tok == "last" and i + 1 < len(w) and w[i + 1] in _PAST_TIME_LAST_NOUNS:
+            return True
+    return False
+
+
+def _verb_shows_past(verb, pos_of):
+    return verb in AUX_PAST or is_past_form(verb, pos_of)
+
+
+def _verb_is_checkable(verb, pos_of):
+    if verb in AUX_OR_MODAL and verb not in AUX_PAST:
+        return False  # non-past aux/modal (am/is/will/would/can/...) -- too ambiguous, skip
+    if verb.endswith("ing"):
+        return False  # progressive aspect, a different construction
+    return bool(pos_of and pos_of(verb)["verb"])
+
+
+def check_tense_time_marker(raw_text, written_to_intended=None, pos_of=None):
+    """
+    Detects a sentence containing an explicit past-time marker
+    ("yesterday", "ago", "last night/week/month/...") whose verb is not
+    marked past. Word identity deferred the same way as every other check
+    in this module (docs/24 Overlap Rule 1). Questions skipped, same
+    exclusion as Word order and Pronoun case.
+
+    SCOPE, deliberately narrow: only the sentence's FIRST subject-shaped
+    candidate (reusing Task 1's subject-detection patterns) is examined --
+    a later noun phrase (an object, e.g. "London" in "Tom visit London
+    last year") is never treated as a competing candidate, only what
+    appears BEFORE that first candidate's own verb. A genuine compound
+    subject ("my brother and his friend went") is recognised by an "and"
+    between the subject and its verb and skipped, since this module has no
+    real clause-boundary parsing to know which half governs the verb. An
+    embedded clause's own verb ("I don't know what happened yesterday") is
+    not independently checked either -- only the first clause's subject+
+    verb is ever examined -- an honest, stated limitation, not a silent gap.
+
+    Returns a list of error dicts: {family, edit_type, written, intended,
+    matched, sentence_index, reason}.
+    """
+    written_to_intended = written_to_intended or {}
+    sentences = split_sentences(raw_text)
+    errors = []
+
+    def intended_of(tok):
+        return written_to_intended.get(tok, tok)
+
+    for sent_idx, sentence in enumerate(sentences):
+        if re.search(r"\?\s*$", sentence.strip()):
+            continue
+        low = _expand(sentence.lower())
+        w = _WORD.findall(low)
+        orig = _WORD_CASED.findall(_expand(sentence))
+
+        if not _has_past_time_marker(w):
+            continue
+
+        # Take the FIRST subject-shaped candidate only -- scanning the WHOLE
+        # sentence and requiring exactly one match (an earlier version of
+        # this check) miscounted every object noun phrase as a second,
+        # competing subject ("Tom visit London last year" skipped itself
+        # entirely, since "London" -- capitalised, unrecognised -- matched
+        # is_proper_noun_subject too, even though it's the object of
+        # "visit", not a second clause). Found by testing, not assumed.
+        first_i = first_v = None
+        for i in range(len(w)):
+            v = None
+            if w[i] in SUBJ_PRON_ANY:
+                v = _next_idx(w, i)
+            elif (w[i] in SING_DET and i + 1 < len(w)
+                  and is_singular_noun(intended_of(w[i + 1]), pos_of)):
+                v = i + 2
+            elif is_proper_noun_subject(orig, w, i, pos_of):
+                v = _next_idx(w, i)
+            if v is not None and v < len(w):
+                first_i, first_v = i, v
+                break
+
+        if first_i is None:
+            continue  # no subject-shaped candidate at all -- nothing to check
+
+        # A genuine compound subject ("my brother and his friend went") has
+        # "and" between where the subject starts and where its verb sits --
+        # that IS ambiguous (which half governs number/tense isn't this
+        # module's to decide without real parsing) and is skipped. An object
+        # noun phrase later in the sentence never reaches this slice at all,
+        # so it no longer causes the whole check to bail out.
+        if "and" in w[first_i:first_v + 1]:
+            continue
+
+        verb_idx = first_v
+        written_verb = w[verb_idx]
+        verb = intended_of(written_verb)
+
+        if not _verb_is_checkable(verb, pos_of):
+            continue
+        if _verb_shows_past(verb, pos_of):
+            continue
+
+        errors.append({
+            "family": "tense", "edit_type": "wrong-form",
+            "written": written_verb, "intended": verb,
+            "matched": written_verb, "sentence_index": sent_idx,
+            "reason": "past-time-marker-contradiction",
+        })
 
     return errors
