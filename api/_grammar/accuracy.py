@@ -91,6 +91,26 @@ _BE_FORMS = {"am", "is", "are"}
 _HAVE_FORMS = {"has", "have"}
 _DO_FORMS = {"does", "do"}
 
+# Forms that take NO person/number marking at all, so no subject can ever
+# disagree with them. Without this the regular "-s" fallback below reads
+# every one of them as a missing third-person "-s" and flags ordinary
+# English: "He can swim", "He will leave", "He had left" (docs/39, Bug A).
+#
+# Two groups, both genuinely invariant:
+#   - modals, which have no inflected forms at all;
+#   - "had"/"did", past forms of have/do, which don't inflect for person
+#     the way their present counterparts (has/have, does/do) do -- they
+#     were being held to _HAVE_FORMS/_DO_FORMS' present-tense agreement.
+#
+# Deliberately NOT here: "was"/"were", which DO agree ("he was" / "they
+# were"). They are handled correctly already, and adding them would turn
+# off a real check -- confirmed by fixture, not assumed.
+_INVARIANT_AGREEMENT = {
+    "can", "could", "may", "might", "must",
+    "shall", "should", "will", "would", "ought",
+    "had", "did",
+}
+
 
 def _irregular_required(verb, subj_text, third):
     """The correctly-agreeing form for be/have/do, given what the subject
@@ -167,6 +187,11 @@ def check_subject_verb_agreement(raw_text, written_to_intended=None, pos_of=None
                         "matched": "%s %s" % (subj_text, written_verb),
                         "sentence_index": sent_idx, "token_index": v,
                     })
+                continue
+
+            # Modals and invariant past auxiliaries take no agreement
+            # marking at all -- no subject can disagree with them.
+            if verb in _INVARIANT_AGREEMENT:
                 continue
 
             # Past tense needs no person/number agreement in English --
@@ -528,6 +553,26 @@ _OBJ_TO_SUBJ = {v: k for k, v in _SUBJ_TO_OBJ.items()}
 # exclusion list, same spirit as ADJ_PARTICIPLE/_COMMON_UNCOUNTABLE.
 _CAUSATIVE_VERBS = {"let", "make", "made", "have", "had", "help", "helped"}
 
+# POSSESSIVE "her" -- the one member of _OBJECT_FORMS that is ALSO a
+# possessive determiner ("her book"), where every other member is only ever
+# an object pronoun. A very large share of common nouns carry a verb sense
+# too (book, work, hand, face, name, place, call, watch...), so Pattern 1's
+# "object pronoun + verb-capable word" test matched ordinary possessive
+# noun phrases and flagged them as misplaced subjects (docs/39, Bug B).
+#
+# The guard: for "her" only, a following NOUN-capable word means possessive,
+# not a misplaced subject. The GSE data separates these cleanly -- the
+# false-positive words above are all noun=True, while the words that follow
+# a genuinely misplaced subject ("her goes", "her runs", "her walks") are
+# all noun=False, so "Her goes to school" still catches.
+#
+# Restricted to "her" deliberately: applying it to the whole object set
+# would weaken real catches for no reason, since "him"/"me"/"us"/"them"
+# are never possessive determiners ("Them work hard" must still flag).
+# Third instance of the recurring lesson in docs/30 and docs/37 -- a word's
+# DOMINANT reading matters, not merely whether some reading is possible.
+_POSSESSIVE_AMBIGUOUS = {"her"}
+
 # No preposition list exists anywhere in this codebase to reuse -- Range's
 # own `prepositions` family is deliberately deferred ("always present --
 # uninformative as a detection", detect.py's DEFERRED list) precisely
@@ -583,8 +628,10 @@ def check_pronoun_case(raw_text, written_to_intended=None, pos_of=None):
             if tok in _OBJECT_FORMS and i + 1 < len(w):
                 verb = intended_of(w[i + 1])
                 prev = intended_of(w[i - 1]) if i > 0 else None
+                possessive = (tok in _POSSESSIVE_AMBIGUOUS
+                              and pos_of and pos_of(verb)["noun"])
                 if (verb not in AUX_OR_MODAL and pos_of and pos_of(verb)["verb"]
-                        and prev not in _CAUSATIVE_VERBS):
+                        and prev not in _CAUSATIVE_VERBS and not possessive):
                     errors.append({
                         "family": "pronoun", "edit_type": "wrong-form",
                         "written": w[i], "intended": tok, "correct": _OBJ_TO_SUBJ[tok],

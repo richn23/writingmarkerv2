@@ -75,6 +75,41 @@ CASES = [
      "My sister works in London.", {}, False),
     ("proper-noun subject, wrong-form",
      "Tom live in Paris.", {}, True),
+
+    # REGRESSION GUARDS for docs/39 Bug A: every modal and invariant past
+    # auxiliary was flagged after a third-singular subject, because the
+    # regular "-s" fallback read the missing marker as a missing agreement.
+    # "He can swim." -- ordinary English -- was a confident false accusation.
+    # These fixtures exist so that specific failure mode cannot return.
+    ("REGRESSION GUARD (Bug A): modals take no agreement marking -- must"
+     " not flag",
+     "He can swim.", {}, False),
+    ("REGRESSION GUARD (Bug A): modal 'will'", "He will leave.", {}, False),
+    ("REGRESSION GUARD (Bug A): modal 'would'", "He would leave.", {}, False),
+    ("REGRESSION GUARD (Bug A): modal 'could'", "She could swim.", {}, False),
+    ("REGRESSION GUARD (Bug A): modal 'must'", "He must leave.", {}, False),
+    ("REGRESSION GUARD (Bug A): modal 'should'", "He should leave.", {}, False),
+    ("REGRESSION GUARD (Bug A): modal 'may'", "He may leave.", {}, False),
+    ("REGRESSION GUARD (Bug A): modal 'might'", "He might leave.", {}, False),
+    ("REGRESSION GUARD (Bug A): modal 'shall'", "He shall leave.", {}, False),
+    ("REGRESSION GUARD (Bug A): modal after a proper-noun subject",
+     "Tom will leave.", {}, False),
+    ("REGRESSION GUARD (Bug A): 'had' is a past form of have and does NOT"
+     " inflect for person -- it was being held to 'has'",
+     "He had left.", {}, False),
+    ("REGRESSION GUARD (Bug A): 'did' is a past form of do and does NOT"
+     " inflect for person -- it was being held to 'does'",
+     "He did leave.", {}, False),
+
+    # The other half of Bug A's fix: was/were were deliberately NOT added to
+    # the invariant set, because unlike modals they DO agree. These two
+    # fixtures prove the fix didn't silently switch off a real check.
+    ("was/were DO agree, unlike modals -- 'he were' is a real error and"
+     " must still flag after Bug A's fix",
+     "He were leaving.", {}, True),
+    ("correct past agreement, must not flag", "He was leaving.", {}, False),
+    ("correct plural past agreement, must not flag",
+     "They were leaving.", {}, False),
 ]
 
 

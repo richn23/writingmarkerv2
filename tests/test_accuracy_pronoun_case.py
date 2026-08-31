@@ -65,6 +65,35 @@ CASES = [
      "Are you and him coming?", {}, False),
     ("subject-form pronoun after 'to' with a full sentence around it",
      "I gave the book to she.", {}, True),
+
+    # REGRESSION GUARDS for docs/39 Bug B: "her" is the one object-form
+    # pronoun that is also a possessive determiner, and most common nouns
+    # carry a verb sense too, so ordinary possessive noun phrases matched
+    # Pattern 1's "object pronoun + verb-capable word" test. "He took her
+    # book." was flagged as a misplaced subject. These lock that shut.
+    ("REGRESSION GUARD (Bug B): possessive 'her' before a noun that also"
+     " has a verb sense must not flag",
+     "He took her book.", {}, False),
+    ("REGRESSION GUARD (Bug B): possessive 'her' + 'friend'",
+     "She visited her friend.", {}, False),
+    ("REGRESSION GUARD (Bug B): possessive 'her' + 'work'",
+     "He praised her work.", {}, False),
+    ("REGRESSION GUARD (Bug B): possessive 'her' + 'hand'",
+     "He held her hand.", {}, False),
+    ("REGRESSION GUARD (Bug B): possessive 'her' + 'name'",
+     "I forgot her name.", {}, False),
+
+    # The other half of Bug B's fix: the guard is scoped to a following
+    # NOUN-capable word, so a genuinely misplaced subject still catches --
+    # "goes"/"runs" are noun=False in the GSE data.
+    ("Bug B's guard must NOT mask a genuine subject-position error: 'goes'"
+     " is not noun-capable, so 'Her goes' still flags",
+     "Her goes to school.", {}, True),
+    ("same, with 'runs'", "Her runs every day.", {}, True),
+    ("Bug B's guard is scoped to 'her' alone -- 'them' is never a"
+     " possessive determiner, so this must still flag even though 'work'"
+     " is noun-capable",
+     "Them work hard.", {}, True),
 ]
 
 
