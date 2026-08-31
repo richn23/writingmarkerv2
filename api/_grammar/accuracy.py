@@ -880,3 +880,143 @@ def check_all(raw_text, written_to_intended=None, pos_of=None):
         "tense": check_tense_time_marker(raw_text, written_to_intended, pos_of),
     }
     return merge_accuracy_errors(by_family)
+
+
+# ---------------------------------------------------------------------------
+# Task 10 -- global aggregation (docs/29): errors/100 words, grammatically
+# error-free sentence %.
+#
+# Two denominator decisions, both deliberate, both stated here rather than
+# left to fall out of whatever the counting code happened to do:
+#
+# 1. WHICH TEXT. Both denominators are computed from the RAW as-written text,
+#    the same text the errors were found in -- never the approved
+#    interpretation. This is the same self-consistency principle score.py's
+#    _grammar_metrics() states for itself ("every ratio divides by the
+#    sentence count computed from the SAME text gd was detected from"), but
+#    it resolves to the OPPOSITE text here, because Accuracy's primary input
+#    is the raw text (docs/27) while Metrics' is the interpretation.
+#
+#    These two word counts can genuinely differ, not just in principle:
+#    Spelling's corrector has a "split" decision that turns one written token
+#    into several ("alot" -> "a lot"), so the interpretation can carry more
+#    words than the raw text. `grammar_metrics["word_count"]` and
+#    `grammar_accuracy["word_count"]` are therefore two different true
+#    numbers about two different texts, and must never be surfaced as if
+#    they were the same count (Task 12's problem, flagged here because this
+#    is where the divergence is created).
+#
+# 2. WHICH TOKENIZATION. The word count deliberately does NOT use the
+#    contraction-expanded `_WORD` stream that every check indexes
+#    `token_index` into. That stream is an internal index space, not a word
+#    count: `_expand()` rewrites "don't" as "do not", and `_WORD` ([a-z]+)
+#    splits an unexpanded "he's" into ["he", "s"], emitting an artifact
+#    token. Measured on contraction-heavy learner text, the expanded stream
+#    runs 27-29% longer than the written word count -- large enough that
+#    using it would systematically flatter writers who use contractions,
+#    since their denominator inflates while their error count doesn't.
+#    So the denominator is written words ([A-Za-z']+, which counts "don't"
+#    as the one word a teacher would count), matching the convention
+#    score.py already uses. The numerator's index space and the
+#    denominator's unit are therefore intentionally different things; that
+#    is correct for a rate reported to a human, and is the reason this note
+#    exists.
+# ---------------------------------------------------------------------------
+
+_WRITTEN_WORD = re.compile(r"[A-Za-z']+")
+
+# The eight feature-families docs/24 defines, with an honest per-family scope
+# note. "Absence isn't evidence of absence" (docs/29): a low error count here
+# reflects what is actually checked, not the whole of English grammar, and
+# every checked family below is itself a stated slice rather than complete
+# coverage of that family.
+_COVERAGE = [
+    ("subject-verb agreement", True,
+     "wrong-form agreement between a detected subject and its verb; does not"
+     " detect a missing verb"),
+    ("verb form", True,
+     "over-regularised irregular past forms ('goed', 'runned') only"),
+    ("tense", True,
+     "contradiction between an explicit past-time marker and an unmarked"
+     " verb only; no whole-narrative tense-consistency tracking"),
+    ("number", True,
+     "plural marking after an explicit quantity marker only"),
+    ("pronoun", True,
+     "case errors in subject position, after a preposition, and in compound"
+     " subjects; direct-object position deliberately not attempted"),
+    ("word order", True,
+     "frequency-adverb placement only"),
+    ("article/determiner", False,
+     "not built: no countable/uncountable noun data exists in the codebase"
+     " to decide when an article is required"),
+    ("preposition", False,
+     "not built: no preposition-selection data exists in the codebase"),
+]
+
+
+def aggregate_accuracy(raw_text, merged_errors):
+    """
+    Global aggregation over ALREADY-MERGED errors (Task 9's output). Takes
+    merged errors specifically, not the six checks' raw output: under
+    docs/24's Scenario A one span is one error however many families
+    describe it, so counting pre-merge output would double-count exactly the
+    overlaps Task 9 exists to collapse.
+
+    Computes nothing about word identity and calls none of the checks -- a
+    pure aggregation step, testable against hand-built error lists.
+    """
+    sentences = split_sentences(raw_text)
+    sentence_count = len(sentences)
+    word_count = len(_WRITTEN_WORD.findall(raw_text))
+    error_count = len(merged_errors)
+
+    flagged = {e["sentence_index"] for e in merged_errors
+               if e.get("sentence_index") is not None}
+    # Only sentences that actually exist count -- an out-of-range index from a
+    # caller passing mismatched text must not silently reduce the clean count.
+    flagged_in_range = {i for i in flagged if 0 <= i < sentence_count}
+    error_free = sentence_count - len(flagged_in_range)
+
+    return {
+        "sentence_count": sentence_count,
+        "word_count": word_count,
+        "word_count_basis": "raw as-written text, written words",
+        "error_count": error_count,
+        "errors_per_100_words": (
+            round(error_count * 100.0 / word_count, 1) if word_count else None),
+        "grammatically_error_free_sentences": error_free,
+        "grammatically_error_free_sentence_pct": (
+            round(error_free * 100.0 / sentence_count, 1) if sentence_count else None),
+        # Carried in the payload itself, not left to the UI to remember.
+        "grammatically_error_free_definition": (
+            "A sentence with zero GRAMMAR errors, full stop -- not 'no errors"
+            " of any kind'. A sentence carrying a spelling mistake or a"
+            " punctuation slip but no grammar error still counts as"
+            " grammatically error-free. This is not a general correctness"
+            " score."),
+        "coverage": {
+            "families_checked": sum(1 for _, checked, _ in _COVERAGE if checked),
+            "families_total": len(_COVERAGE),
+            "partial": any(not checked for _, checked, _ in _COVERAGE),
+            "note": (
+                "Partial coverage. Counts reflect only the families and"
+                " scopes listed below; unchecked families and unchecked"
+                " scopes within checked families produce no errors, which is"
+                " absence of evidence, not evidence of absence."),
+            "families": [
+                {"family": name, "checked": checked, "scope": scope}
+                for name, checked, scope in _COVERAGE
+            ],
+        },
+    }
+
+
+def accuracy_report(raw_text, written_to_intended=None, pos_of=None):
+    """
+    Full Accuracy v1 result: the merged error list plus the global
+    aggregation over it. The shape Task 11 will wire into score.py.
+    """
+    errors = check_all(raw_text, written_to_intended, pos_of)
+    report = aggregate_accuracy(raw_text, errors)
+    report["errors"] = errors
+    return report
