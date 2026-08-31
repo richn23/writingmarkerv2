@@ -1,9 +1,10 @@
 """
 Grammar Accuracy v1 (docs/24 Revision 3, docs/29, docs/33) -- Task 1
-(subject-verb agreement), Task 2 (verb-form over-regularization), and Task
-3's Number, Word order (frequency-adverb placement), Pronoun case, and
-narrow Tense (time-marker contradiction) families. Not wired into score.py
-yet (Task 11, not this increment).
+(subject-verb agreement), Task 2 (verb-form over-regularization), Task 3's
+Number, Word order (frequency-adverb placement), Pronoun case, and narrow
+Tense (time-marker contradiction) families, and Task 9 (cascading-error
+merge logic, Scenario A only -- see the note above merge_accuracy_errors).
+Not wired into score.py yet (Task 11, not this increment).
 
 INPUT MODEL (doc 27's correction, not Repertoire/Metrics' pattern): reads
 raw/written text as the primary input -- scoring the approved interpretation
@@ -164,7 +165,7 @@ def check_subject_verb_agreement(raw_text, written_to_intended=None, pos_of=None
                         "family": "subject-verb-agreement", "edit_type": "wrong-form",
                         "subject": subj_text, "written": written_verb, "intended": verb,
                         "matched": "%s %s" % (subj_text, written_verb),
-                        "sentence_index": sent_idx,
+                        "sentence_index": sent_idx, "token_index": v,
                     })
                 continue
 
@@ -183,14 +184,14 @@ def check_subject_verb_agreement(raw_text, written_to_intended=None, pos_of=None
                     "family": "subject-verb-agreement", "edit_type": "wrong-form",
                     "subject": subj_text, "written": written_verb, "intended": verb,
                     "matched": "%s %s" % (subj_text, written_verb),
-                    "sentence_index": sent_idx,
+                    "sentence_index": sent_idx, "token_index": v,
                 })
             elif bare and not _agrees_bare(verb, pos_of):
                 errors.append({
                     "family": "subject-verb-agreement", "edit_type": "wrong-form",
                     "subject": subj_text, "written": written_verb, "intended": verb,
                     "matched": "%s %s" % (subj_text, written_verb),
-                    "sentence_index": sent_idx,
+                    "sentence_index": sent_idx, "token_index": v,
                 })
 
     return errors
@@ -262,7 +263,7 @@ def check_verb_form_overregularization(raw_text, written_to_intended=None, pos_o
         low = _expand(sentence.lower())
         w = _WORD.findall(low)
 
-        for written in w:
+        for tok_idx, written in enumerate(w):
             token = written_to_intended.get(written, written)
             if len(token) <= 3 or not token.endswith("ed"):
                 continue
@@ -280,6 +281,7 @@ def check_verb_form_overregularization(raw_text, written_to_intended=None, pos_o
                     "written": written, "intended": token,
                     "base": cand, "correct": correct,
                     "matched": written, "sentence_index": sent_idx,
+                    "token_index": tok_idx,
                 })
                 break
 
@@ -384,6 +386,7 @@ def check_number(raw_text, written_to_intended=None, pos_of=None):
                 "family": "number", "edit_type": edit_type,
                 "written": written_noun, "intended": noun, "correct": correct,
                 "matched": "%s %s" % (w[i], written_noun), "sentence_index": sent_idx,
+                "token_index": i + 1,
             })
 
     return errors
@@ -465,7 +468,7 @@ def check_word_order_frequency_adverbs(raw_text, written_to_intended=None, pos_o
                     "family": "word-order", "edit_type": "wrong-order",
                     "written": w[0], "intended": first,
                     "matched": " ".join(w[:2]), "sentence_index": sent_idx,
-                    "reason": "sentence-initial",
+                    "reason": "sentence-initial", "token_index": 0,
                 })
         elif first in _FRONTING_REQUIRES_INVERSION:
             pass  # deferred -- requires inversion detection this check doesn't attempt (see module note)
@@ -494,6 +497,7 @@ def check_word_order_frequency_adverbs(raw_text, written_to_intended=None, pos_o
                     "family": "word-order", "edit_type": "wrong-order",
                     "written": w[adv_idx], "intended": intended_of(w[adv_idx]),
                     "matched": " ".join(w[i:adv_idx + 1]), "sentence_index": sent_idx,
+                    "token_index": adv_idx,
                     "reason": "after-verb",
                 })
 
@@ -585,7 +589,7 @@ def check_pronoun_case(raw_text, written_to_intended=None, pos_of=None):
                         "family": "pronoun", "edit_type": "wrong-form",
                         "written": w[i], "intended": tok, "correct": _OBJ_TO_SUBJ[tok],
                         "matched": " ".join(w[i:i + 2]), "sentence_index": sent_idx,
-                        "reason": "subject-position",
+                        "reason": "subject-position", "token_index": i,
                     })
 
             # Pattern 2 -- subject-form pronoun immediately after a common
@@ -595,7 +599,7 @@ def check_pronoun_case(raw_text, written_to_intended=None, pos_of=None):
                     "family": "pronoun", "edit_type": "wrong-form",
                     "written": w[i], "intended": tok, "correct": _SUBJ_TO_OBJ[tok],
                     "matched": " ".join(w[i - 1:i + 1]), "sentence_index": sent_idx,
-                    "reason": "object-position",
+                    "reason": "object-position", "token_index": i,
                 })
 
             # Pattern 3 -- compound subject ("me and him went"): a pronoun
@@ -612,7 +616,7 @@ def check_pronoun_case(raw_text, written_to_intended=None, pos_of=None):
                         "family": "pronoun", "edit_type": "wrong-form",
                         "written": w[i], "intended": tok, "correct": _OBJ_TO_SUBJ[tok],
                         "matched": " ".join(w[i:i + 4]), "sentence_index": sent_idx,
-                        "reason": "compound-subject",
+                        "reason": "compound-subject", "token_index": i,
                     })
 
     return errors
@@ -752,7 +756,127 @@ def check_tense_time_marker(raw_text, written_to_intended=None, pos_of=None):
             "family": "tense", "edit_type": "wrong-form",
             "written": written_verb, "intended": verb,
             "matched": written_verb, "sentence_index": sent_idx,
+            "token_index": verb_idx,
             "reason": "past-time-marker-contradiction",
         })
 
     return errors
+
+
+# ---------------------------------------------------------------------------
+# Task 9 -- cascading-error merge logic (docs/24, docs/29)
+# ---------------------------------------------------------------------------
+#
+# SCENARIO A ONLY (docs/24): one span, multiple possible descriptions.
+# Merges error entries that refer to the SAME token (same sentence_index
+# AND same token_index) across two or more of the checks above into one,
+# keeping the most specific family's own entry as the primary and
+# recording which other checks also fired on the same token, so a marker
+# sees one finding, not several restating the identical mistake.
+#
+# SCENARIO B (whole-narrative tense-consistency propagation: an early
+# established pattern making later, internally-consistent forms look wrong
+# relative to standard English) is DELIBERATELY NOT ATTEMPTED here --
+# genuinely different in kind from Scenario A. Scenario A merges findings
+# ACROSS the different checks above on the same token; Scenario B would
+# need tracking a pattern's establishment and scope ACROSS a whole
+# narrative, closer to Tense's own out-of-scope "whole-narrative
+# consistency tracking" (docs/33, docs/37) than to a merge step. Flagged,
+# not folded in silently.
+#
+# Every one of the six checks above now includes "token_index" (added as
+# part of this task, verified against every existing test suite to be a
+# pure addition -- no existing check's flag/no-flag behaviour changed).
+# Confirmed empirically, not assumed, that a real overlap exists among the
+# current six checks: "Yesterday he go to school." fires BOTH
+# subject-verb-agreement and tense on the same token ("go") -- the two are
+# independently correct about the same underlying mistake (the word needs
+# to be "went", which is simultaneously the right past-tense form and
+# invariant for person/number, fixing both readings at once).
+#
+# Specificity ranking: subject-verb-agreement/verb-form/number/word-order/
+# pronoun are all equally specific relative to each other (no two of them
+# have been found to overlap with one another on the same token in any
+# fixture tested); "tense" is the most general of the six and yields to
+# any other family it overlaps with, matching docs/24's "attributed to the
+# single MOST SPECIFIC applicable feature-family" rule.
+_FAMILY_SPECIFICITY = {
+    "subject-verb-agreement": 0,
+    "verb-form": 0,
+    "number": 0,
+    "word-order": 0,
+    "pronoun": 0,
+    "tense": 1,
+}
+
+
+def merge_accuracy_errors(errors_by_family):
+    """
+    Pure merge step -- takes ALREADY-COMPUTED results from the six checks
+    above (does not call them itself), so it stays independently testable
+    against hand-built inputs, not just against whatever the checks happen
+    to produce together.
+
+    `errors_by_family`: {family_key: [error_dicts, ...]}, using the same
+    family_key strings each check's own "family" field already carries
+    ("subject-verb-agreement", "verb-form", "number", "word-order",
+    "pronoun", "tense").
+
+    Returns a flat list of error dicts. Every dict gains an
+    "also_flagged_by" list -- empty when nothing else fired on the same
+    token, otherwise the family keys of the checks that were merged away
+    into this one entry (most-specific-first tie-break preserved: the
+    surviving entry's own family/edit_type/written/intended/etc. are
+    whichever check ranked as most specific, per _FAMILY_SPECIFICITY).
+    """
+    tagged = []
+    for family_key, errs in errors_by_family.items():
+        for e in errs:
+            entry = dict(e)
+            entry["_source_family"] = family_key
+            tagged.append(entry)
+
+    groups = {}
+    for idx, e in enumerate(tagged):
+        ti = e.get("token_index")
+        # No token_index at all (shouldn't happen -- every check above sets
+        # it -- but a future check that omits it must never be silently
+        # merged with something else on a guessed-at key) gets its own
+        # unique group instead of colliding with anything.
+        key = (e["sentence_index"], ti) if ti is not None else ("_unkeyed", idx)
+        groups.setdefault(key, []).append(e)
+
+    merged = []
+    for group in groups.values():
+        if len(group) == 1:
+            e = dict(group[0])
+            e.pop("_source_family", None)
+            e["also_flagged_by"] = []
+            merged.append(e)
+            continue
+        group_sorted = sorted(group, key=lambda x: _FAMILY_SPECIFICITY.get(x["_source_family"], 0))
+        primary = dict(group_sorted[0])
+        primary["also_flagged_by"] = [g["_source_family"] for g in group_sorted[1:]]
+        primary.pop("_source_family", None)
+        merged.append(primary)
+
+    return merged
+
+
+def check_all(raw_text, written_to_intended=None, pos_of=None):
+    """
+    Convenience entry point: runs all six checks and merges overlapping
+    results. Not the only way to call the individual checks -- each stays
+    independently callable, and merge_accuracy_errors() stays independently
+    testable against hand-built inputs, deliberately not just through this
+    wrapper.
+    """
+    by_family = {
+        "subject-verb-agreement": check_subject_verb_agreement(raw_text, written_to_intended, pos_of),
+        "verb-form": check_verb_form_overregularization(raw_text, written_to_intended, pos_of),
+        "number": check_number(raw_text, written_to_intended, pos_of),
+        "word-order": check_word_order_frequency_adverbs(raw_text, written_to_intended, pos_of),
+        "pronoun": check_pronoun_case(raw_text, written_to_intended, pos_of),
+        "tense": check_tense_time_marker(raw_text, written_to_intended, pos_of),
+    }
+    return merge_accuracy_errors(by_family)
