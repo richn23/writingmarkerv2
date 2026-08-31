@@ -51,6 +51,7 @@ from _grammar import detect as grammar_detect             # noqa: E402
 from _grammar import families as grammar_families         # noqa: E402
 from _grammar.sentences import split_sentences            # noqa: E402
 from _grammar.pos import make_pos_lookup as make_grammar_pos_lookup  # noqa: E402
+from _grammar.accuracy import accuracy_report                # noqa: E402
 
 _DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_data")
 MAX_ROWS = 500
@@ -286,6 +287,55 @@ def _grammar_source_text(result):
     if sample:
         return sample
     return _corrected_text(result["text"], result["audit"]["lenient"])
+
+
+def _accuracy_written_to_intended(result):
+    """
+    {lowercased written token: the form the interpretation settled on}, built
+    from the deterministic Spelling audit trail -- the SAME rows
+    `_corrected_text()` above rewrites the script from, so Accuracy and the
+    text the user reads can never disagree about what a word was taken to be.
+
+    This map is the mechanism that makes docs/24 Overlap Rule 1 real rather
+    than nominal: Accuracy never re-decides word identity, it looks up what
+    was already decided. A token absent from the map is unchanged -- its own
+    written form IS its intended form, which is the common case and the
+    conservative fallback (accuracy.py documents the same contract at its
+    end).
+
+    Lenient, matching `_grammar_source_text()`'s own fallback and the
+    "intent, else lenient" reading Vocab/Spelling's `_assessed()` uses.
+
+    Known limit, stated rather than hidden: this captures SPELLING's
+    resolutions. Where the intent layer changed something beyond spelling,
+    that isn't in this map -- recovering it would mean aligning
+    `corrected_sample` back to the raw text token-by-token, which the
+    corrector's own "split" decision ("alot" -> "a lot") makes a genuine
+    alignment problem rather than a zip(). Out of scope for v1; the fallback
+    above means the cost is a missed correction, never a false accusation.
+    """
+    rows = (result.get("audit") or {}).get("lenient") or []
+    return {r["original"]: r["corrected"] for r in rows if r.get("corrected")}
+
+
+def _grammar_accuracy(result):
+    """
+    Accuracy v1 (docs/29 Task 11): the merged error list plus global
+    aggregation.
+
+    Reads the RAW as-written text (`result["text"]`) -- deliberately NOT
+    `_grammar_source_text()`, which returns the interpretation and says so.
+    That difference is the whole point: Range reads what the student MEANT to
+    write, Accuracy reads what they ACTUALLY wrote, with the interpretation
+    supplied separately as the paired reference above (docs/27's correction
+    to the input model). Routing this through `_grammar_source_text()` would
+    silently grade the corrected text and report near-zero errors.
+    """
+    return accuracy_report(
+        result["text"],
+        _accuracy_written_to_intended(result),
+        _grammar_pos(),
+    )
 
 
 def _grammar_detected(text):
@@ -613,6 +663,19 @@ def detail(result):
             out["grammar_metrics_error"] = "%s: %s" % (type(exc).__name__, exc)
     except Exception as exc:                                  # never fail the score over this
         out["grammar_detected_error"] = "%s: %s" % (type(exc).__name__, exc)
+
+    # Deliberately its OWN try block, not nested inside the one above:
+    # grammar_metrics genuinely depends on `gd`, so it belongs inside
+    # grammar_detected's failure path, but Accuracy shares nothing with
+    # Range beyond the pos lookup. Nesting it would mean a Range failure
+    # silently suppressed Accuracy too, reporting no errors rather than an
+    # error -- the one failure mode this panel must never have.
+    out["grammar_accuracy"] = None
+    out["grammar_accuracy_error"] = None
+    try:
+        out["grammar_accuracy"] = _grammar_accuracy(result)
+    except Exception as exc:                                  # never fail the score over this
+        out["grammar_accuracy_error"] = "%s: %s" % (type(exc).__name__, exc)
     return out
 
 
