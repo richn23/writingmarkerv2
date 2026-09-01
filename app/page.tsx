@@ -167,6 +167,44 @@ type Detail = Summary & {
     structure_diversity: { detected_count: number; total_detectable: number; ratio: number | null };
   } | null;
   grammar_metrics_error?: string | null;
+  // Accuracy v1 (docs/29). NOTE: `word_count` here counts the RAW as-written
+  // text, while grammar_metrics.word_count counts the approved
+  // interpretation. They are two different true numbers about two different
+  // texts and genuinely diverge (Spelling's split decision turns "alot" into
+  // "a lot"), so they must never be rendered as if they were the same count
+  // -- docs/39, docs/41. `word_count_basis` carries the distinction for
+  // display.
+  grammar_accuracy?: {
+    sentence_count: number;
+    word_count: number;
+    word_count_basis: string;
+    error_count: number;
+    errors_per_100_words: number | null;
+    grammatically_error_free_sentences: number;
+    grammatically_error_free_sentence_pct: number | null;
+    grammatically_error_free_definition: string;
+    coverage: {
+      families_checked: number;
+      families_total: number;
+      partial: boolean;
+      note: string;
+      families: Array<{ family: string; checked: boolean; scope: string }>;
+    };
+    errors: Array<{
+      family: string;
+      edit_type: string;
+      written: string;
+      intended: string;
+      correct?: string | null;
+      matched: string;
+      sentence_index: number;
+      token_index?: number;
+      reason?: string;
+      subject?: string;
+      also_flagged_by: string[];
+    }>;
+  } | null;
+  grammar_accuracy_error?: string | null;
 };
 
 // A marker's disagreement with one vocabulary proposal, keyed by the token as
@@ -244,9 +282,10 @@ type ScreenKey = typeof SCREENS[number]["key"];
 // placeholder is written from the label alone.
 const EVIDENCE_TABS = [
   { key: "vocab_spelling", label: "Vocabulary profile", built: true },
-  // "Grammar detected" (Range) is real inside this tab; "Grammar accuracy" is
-  // still an honest placeholder within it (docs/21). `built: true` here only
-  // means the tab has real content behind it, not that every section does.
+  // All three sections in this tab are now real: "Grammar detected" (Range),
+  // "Grammar Metrics" (Tier 1 proxies), and "Grammar accuracy" (v1, docs/41).
+  // Accuracy reports partial coverage on its own face -- 6 of 8 families,
+  // each a stated slice -- rather than being gated behind a placeholder.
   { key: "grammar", label: "Grammar profile", built: true },
   { key: "task_analysis", label: "Task Analysis", built: false },
   { key: "additional_metrics", label: "Additional Metrics", built: false },
@@ -1956,6 +1995,169 @@ function GrammarMetricsSection({ d }: { d: Detail }) {
   );
 }
 
+// Family keys as accuracy.py emits them, mapped to reader-facing names. The
+// eight docs/24 families use spaces ("subject-verb agreement"); the error
+// dicts use hyphenated keys ("subject-verb-agreement"). Both are covered so
+// the coverage table and the error list can share one lookup.
+const ACCURACY_FAMILY_NAMES: Record<string, string> = {
+  "subject-verb-agreement": "Subject–verb agreement",
+  "subject-verb agreement": "Subject–verb agreement",
+  "verb-form": "Verb form",
+  "verb form": "Verb form",
+  "number": "Number",
+  "word-order": "Word order",
+  "word order": "Word order",
+  "pronoun": "Pronoun",
+  "tense": "Tense",
+  "article/determiner": "Article / determiner",
+  "preposition": "Preposition",
+};
+
+function accuracyFamilyName(key: string) {
+  return ACCURACY_FAMILY_NAMES[key] ?? key;
+}
+
+// The checks work in lowercase throughout, so first-person "I" comes back as
+// "i" in `correct`/`intended`. Rendering that literally would print the wrong
+// form as the right answer -- "me → i" -- so it's re-capitalised for display
+// only. Display-layer fix on purpose: lowercasing is correct for the matching
+// the checks do, and only the reader-facing string needs the case back.
+function accuracyForm(word: string | null | undefined) {
+  if (!word) return word;
+  return word === "i" ? "I" : word;
+}
+
+function GrammarAccuracySection({ d }: { d: Detail }) {
+  const ga = d.grammar_accuracy;
+  const dash = "—";
+
+  if (d.grammar_accuracy_error) {
+    return (
+      <div style={{ ...S.note, borderLeftColor: C.bad, color: C.bad }}>
+        Grammar accuracy failed on this sample: {d.grammar_accuracy_error}
+      </div>
+    );
+  }
+  if (!ga) {
+    return <div style={S.note}>No grammar accuracy ran for this sample.</div>;
+  }
+
+  const cov = ga.coverage;
+
+  return (
+    <div>
+      {/* The payload's own note, not re-written as UI copy -- it already says
+          this precisely, and a second version here could drift from it. */}
+      <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 14 }}>
+        {cov.note}
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+        <MetricTile label="Grammar errors" value={ga.error_count} />
+        <MetricTile label="Errors per 100 words" value={ga.errors_per_100_words ?? dash}
+                    sub="counted over the text as written" />
+        {/* Deliberately labelled "grammatically", never bare "error-free" --
+            docs/24 and docs/28 both require it wherever this surfaces. */}
+        <MetricTile label="Grammatically error-free"
+                    value={ga.grammatically_error_free_sentence_pct != null
+                      ? `${ga.grammatically_error_free_sentence_pct}%` : dash}
+                    sub={`${ga.grammatically_error_free_sentences} of ${ga.sentence_count} sentences`} />
+        <MetricTile label="Sentences" value={ga.sentence_count} />
+        {/* NOT the same number as grammar_metrics' word count, which counts
+            the approved interpretation. Labelled by its own basis so the two
+            can never be read as one figure (docs/39, docs/41). */}
+        <MetricTile label="Words as written" value={ga.word_count} unit="words"
+                    sub={ga.word_count_basis} />
+      </div>
+
+      {/* The definition ships in the payload precisely so this isn't
+          re-written as UI copy that could drift from the metric's meaning. */}
+      <div style={{ ...S.note, marginTop: 14 }}>
+        <b>What “grammatically error-free” means.</b> {ga.grammatically_error_free_definition}
+      </div>
+
+      <h3 style={S.h3}>Errors found</h3>
+      {ga.errors.length === 0 ? (
+        <div style={S.note}>
+          No grammar errors found in the families checked below. That is not the same as
+          “no grammar errors” — the unchecked families and the stated scope limits still apply.
+        </div>
+      ) : (
+        <div style={S.card}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ textAlign: "left", color: C.ink3, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <th style={{ padding: "4px 8px 8px 0" }}>Family</th>
+                <th style={{ padding: "4px 8px 8px 0" }}>Written</th>
+                <th style={{ padding: "4px 8px 8px 0" }}>In context</th>
+                <th style={{ padding: "4px 0 8px 0" }}>Sentence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Read in the order a marker reads the script, not the order
+                  the six checks happen to run in. */}
+              {[...ga.errors]
+                .sort((a, b) => (a.sentence_index - b.sentence_index)
+                  || ((a.token_index ?? 0) - (b.token_index ?? 0)))
+                .map((e, i) => (
+                <tr key={i} style={{ borderTop: `1px solid ${C.rule}` }}>
+                  <td style={{ padding: "8px 8px 8px 0", color: C.grammar, fontWeight: 600 }}>
+                    {accuracyFamilyName(e.family)}
+                    <div style={{ fontSize: 11, color: C.ink3, fontWeight: 400 }}>
+                      {e.edit_type}
+                      {/* Task 9's merge: one span, more than one description. */}
+                      {e.also_flagged_by && e.also_flagged_by.length > 0
+                        ? ` · also ${e.also_flagged_by.map(accuracyFamilyName).join(", ")}`
+                        : ""}
+                    </div>
+                  </td>
+                  <td style={{ padding: "8px 8px 8px 0" }}>
+                    <code>{e.written}</code>
+                    {e.correct ? <> → <code>{accuracyForm(e.correct)}</code></> : null}
+                    {/* Shown only when Spelling resolved the token to something
+                        else, so it's clear the verdict was reached on the
+                        intended word, not the misspelling (Overlap Rule 1). */}
+                    {e.intended && e.intended !== e.written ? (
+                      <div style={{ fontSize: 11, color: C.ink3 }}>read as “{accuracyForm(e.intended)}”</div>
+                    ) : null}
+                  </td>
+                  <td style={{ padding: "8px 8px 8px 0", color: C.ink2 }}>{e.matched}</td>
+                  <td style={{ padding: "8px 0", color: C.ink3 }}>{e.sentence_index + 1}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h3 style={S.h3}>What was checked</h3>
+      <div style={S.card}>
+        <p style={{ fontSize: 12, color: C.ink3, marginTop: 0, marginBottom: 10 }}>
+          {cov.families_checked} of {cov.families_total} families. Every checked family is
+          itself a stated slice, not full coverage of that family — the scope is listed so a
+          clean result is never read as more than it is.
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <tbody>
+            {cov.families.map((f) => (
+              <tr key={f.family} style={{ borderTop: `1px solid ${C.rule}` }}>
+                <td style={{ padding: "8px 8px 8px 0", width: 24, verticalAlign: "top" }}>
+                  <span style={{ color: f.checked ? C.grammar : C.ink3 }}>{f.checked ? "●" : "○"}</span>
+                </td>
+                <td style={{ padding: "8px 8px 8px 0", verticalAlign: "top", whiteSpace: "nowrap",
+                             color: f.checked ? C.ink : C.ink3 }}>
+                  {accuracyFamilyName(f.family)}
+                </td>
+                <td style={{ padding: "8px 0", color: C.ink3, lineHeight: 1.5 }}>{f.scope}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function GrammarProfileTab({ d }: { d: Detail }) {
   // Independent, so opening one never closes the other.
   const [openDetected, setOpenDetected] = useState(false);
@@ -2004,18 +2206,19 @@ function GrammarProfileTab({ d }: { d: Detail }) {
         title="Grammar accuracy"
         open={openAccuracy}
         onToggle={() => setOpenAccuracy((v) => !v)}
-        headline={<span style={{ fontSize: 13, color: C.ink3 }}>not built yet</span>}
+        sub="Accuracy — whether what was attempted was formed correctly"
+        headline={
+          <>
+            <span style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: C.grammar }}>
+              {d.grammar_accuracy?.error_count ?? "—"}
+            </span>
+            <span style={{ fontSize: 12, color: C.ink3 }}>
+              grammar errors{d.grammar_accuracy ? ` in ${d.grammar_accuracy.coverage.families_checked} of ${d.grammar_accuracy.coverage.families_total} families` : ""}
+            </span>
+          </>
+        }
       >
-        <div style={S.card}>
-          <h3 style={{ ...S.h3, marginTop: 0 }}>Not built yet</h3>
-          <p style={{ fontSize: 14, color: C.ink2, lineHeight: 1.6, marginBottom: 0 }}>
-            There is no grammar accuracy module in this codebase — nothing checks whether an
-            attempted structure was formed correctly, and there is no partial version running
-            behind this section. "Grammar detected" above only reports which structures appear;
-            it is not a proxy for whether they were used correctly, and this section will stay
-            empty until an accuracy module exists.
-          </p>
-        </div>
+        <GrammarAccuracySection d={d} />
       </Collapsible>
     </>
   );
